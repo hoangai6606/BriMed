@@ -8,16 +8,21 @@ import { useEffect, useState } from 'react'
 const SHORTCUTS = [
   { to: '/patient/consultation', label: 'Toa thuốc nhanh tại quầy', desc: 'Quét QR · bác sĩ gọi ngắn', icon: Stethoscope, color: 'bg-primary' },
   { to: '/patient/health-profile', label: 'Hồ sơ sức khỏe', desc: 'Tiền sử, dị ứng, chỉ số', icon: UserRound, color: 'bg-bluedark' },
+  { to: '/patient/prescriptions', label: 'Đơn thuốc của tôi', desc: 'Mã đơn quốc gia, liều dùng', icon: FileText, color: 'bg-pink' },
+  { to: '/patient/search', label: 'Tìm thuốc / Nhà thuốc', desc: 'So sánh giá, tồn kho', icon: Search, color: 'bg-mint-fg' },
+  { to: '/patient/orders', label: 'Đơn hàng', desc: 'Theo dõi thời gian thực', icon: ShoppingCart, color: 'bg-skyblue' },
 ]
 
 export default function PatientDashboard() {
   const user = useAuth((s) => s.user)!
   const refresh = useAuth((s) => s.refresh)
   const [recent, setRecent] = useState<any[]>([])
+  const [rxs, setRxs] = useState<any[]>([])
 
   useEffect(() => {
     refresh()
     api('/patient/consultations/mine').then((d) => setRecent((d.consultations || []).slice(0, 3))).catch(() => {})
+    api('/patient/prescriptions/mine').then((d) => setRxs((d.prescriptions || []).filter((p: any) => p.status === 'issued').slice(0, 2))).catch(() => {})
   }, [])
 
   return (
@@ -52,6 +57,29 @@ export default function PatientDashboard() {
           </Link>
         ))}
       </section>
+
+      {/* Đơn thuốc chờ mua */}
+      {rxs.length > 0 && (
+        <section className="card p-4 border-2 border-pink/30">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="section-title">Đơn thuốc chờ bạn mua</h2>
+            <Link to="/patient/prescriptions" className="text-[13px] font-bold text-primary flex items-center">
+              Xem tất cả <ChevronRight size={15} />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {rxs.map((rx) => (
+              <Link key={rx.id} to="/patient/prescriptions" className="flex items-center justify-between bg-lightpink/40 rounded-xl px-3.5 py-3">
+                <div>
+                  <div className="text-[13.5px] font-bold text-bluedark">{rx.national_code}</div>
+                  <div className="text-[12px] text-slate-500">{rx.items.length} loại thuốc · {timeAgo(rx.created_at)}</div>
+                </div>
+                <span className="btn-pink !min-h-[36px] !px-3 !text-[12.5px]">Mua ngay</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Tư vấn gần đây */}
       <section className="card p-4">
