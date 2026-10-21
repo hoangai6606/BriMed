@@ -35,6 +35,21 @@ export default function AdminDashboard() {
   }
   useEffect(load, [])
 
+  const resetDemo = async () => {
+    if (!confirm('Khôi phục toàn bộ dữ liệu về trạng thái ban đầu? Các phiên đăng nhập hiện tại sẽ bị đăng xuất.')) return
+    setBusy(true)
+    try {
+      await api('/admin/reset-demo', { method: 'POST' })
+      toast('Đã khôi phục dữ liệu. Vui lòng đăng nhập lại.', 'success')
+      refreshAuth()
+      window.location.href = '/auth'
+    } catch (e: any) {
+      toast(e.message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const addMedicine = async () => {
     if (!newMed.name || !newMed.active_ingredient) {
       toast('Cần tên thuốc và hoạt chất.', 'error')
@@ -75,6 +90,9 @@ export default function AdminDashboard() {
         <h1 className="text-[20px] font-extrabold text-bluedark flex items-center gap-2">
           <ShieldCheck size={22} className="text-primary" /> Quản trị hệ thống BriMed
         </h1>
+        <button onClick={resetDemo} disabled={busy} className="btn-outline !min-h-[38px] !text-[12.5px]">
+          <RotateCcw size={15} /> Khôi phục dữ liệu
+        </button>
       </div>
 
       {/* Tabs */}

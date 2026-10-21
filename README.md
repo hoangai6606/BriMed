@@ -1,6 +1,6 @@
 # BriMed (Since 2026) — Toa thuốc điện tử nhanh tại quầy
 
-> **Phiên bản: Giai đoạn 3 — Kết nối vận hành Nhà thuốc & Bảng điều khiển Quản trị.** Bao gồm Giai đoạn 1–2; phần hoàn thiện thương mại hóa thuộc Giai đoạn 4.
+> **Phiên bản: Giai đoạn 4 — Bản hoàn thiện, sẵn sàng thương mại hóa.** Đầy đủ phạm vi 4 giai đoạn: nền móng, khám–kê đơn từ xa, vận hành nhà thuốc & quản trị, cùng phần hoàn thiện nội dung/marketing và kiểm thử các tình huống đặc biệt.
 > Branch này chứa phạm vi Giai đoạn 1: thiết kế mobile-first, dữ liệu mẫu Gò Vấp, tài khoản & phân quyền 4 vai trò, các trang thông tin công khai. Phân hệ khám–kê đơn từ xa, nhà thuốc và quản trị thuộc các giai đoạn tiếp theo.
 
 **"Đơn thuốc an toàn cho bạn an tâm"** · *Không có đơn? Gặp bác sĩ ngay tại quầy — 10 phút tại quầy thay vì nửa ngày ở bệnh viện.*
