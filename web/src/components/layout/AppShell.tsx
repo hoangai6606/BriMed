@@ -18,9 +18,7 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
   patient: [
     { to: '/patient/dashboard', label: 'Tổng quan', icon: Home },
     { to: '/patient/consultation', label: 'Toa nhanh', icon: Stethoscope },
-    { to: '/patient/prescriptions', label: 'Đơn thuốc', icon: FileText },
-    { to: '/patient/search', label: 'Tìm thuốc', icon: SearchIcon },
-    { to: '/patient/orders', label: 'Đơn hàng', icon: ShoppingCart },
+    { to: '/patient/health-profile', label: 'Hồ sơ', icon: UserRound },
   ],
   doctor: [
     { to: '/doctor/dashboard', label: 'Hàng đợi', icon: ClipboardList },

@@ -27,8 +27,8 @@ interface AuthState {
 }
 
 export const homeByRole: Record<string, string> = {
-  patient: '/',
-  doctor: '/',
+  patient: '/patient/dashboard',
+  doctor: '/doctor/dashboard',
   pharmacy: '/',
   admin: '/',
 }
