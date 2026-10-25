@@ -205,6 +205,15 @@ CREATE TABLE IF NOT EXISTS partner_registrations (
   status TEXT DEFAULT 'new',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS patient_leads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  full_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  interest TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','converted')),
+  created_at TEXT NOT NULL
+);
 `)
 
 export function publicUser(u: any) {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { QrCode, Clock, ShieldCheck, Pill, Stethoscope, CheckCircle2, BadgeCheck, XCircle, ChevronDown, Store, Ban, Wallet, Star, UserX, AlertTriangle, Gift } from 'lucide-react'
+import { api } from '../api/client'
 import { SeoMeta } from '../components/common/SeoMeta'
 import { TokenCheckoutMock } from '../components/domain/TokenCheckoutMock'
 import { STEPS_FLOW, SEO, CUSTOMER_BENEFITS, CUSTOMER_PRICING, ELIGIBLE, NOT_ELIGIBLE, CUSTOMER_FAQ, CUSTOMER_PAIN_POINTS, HOME_STATS, CUSTOMER_TESTIMONIALS, CUSTOMER_LEAD_NOTE } from '../data/constants'
@@ -97,20 +98,34 @@ export function TestimonialCard({ name, meta, quote }: { name: string; meta: str
   )
 }
 
-// Form mock: chỉ hiển thị xác nhận, KHÔNG gọi API (bản demo)
+// Form nhận danh sách nhà thuốc — thông tin chuyển về Bảng điều khiển quản trị
 function LeadFormMock() {
   const [form, setForm] = useState({ name: '', phone: '' })
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setErr('')
+    try {
+      const d = await api('/catalog/patient-leads', { method: 'POST', body: JSON.stringify({ full_name: form.name, phone: form.phone }) })
+      setDone(d.message)
+      setForm({ name: '', phone: '' })
+    } catch (e: any) {
+      setErr(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (done) {
     return (
       <div className="card p-6 text-center border-2 border-mint-fg/40">
         <CheckCircle2 size={40} className="mx-auto text-mint-fg mb-3" />
         <h3 className="font-bold text-[17px] text-bluedark">Đã nhận thông tin!</h3>
-        <p className="text-[14px] text-slate-600 mt-1.5 leading-relaxed">
-          BriMed sẽ gửi danh sách nhà thuốc gần bạn qua Zalo/SMS trong giây lát.
-          Đừng quên: <strong>2 toa đầu tiên hoàn toàn miễn phí</strong>.
-        </p>
+        <p className="text-[14px] text-slate-600 mt-1.5 leading-relaxed">{done}</p>
         <Link to="/auth" className="btn-primary mt-4">Tạo tài khoản ngay</Link>
       </div>
     )
@@ -120,17 +135,12 @@ function LeadFormMock() {
     <div className="card p-5 border-2 border-primary/25">
       <h2 className="font-extrabold text-[19px] text-bluedark">{CUSTOMER_LEAD_NOTE.title}</h2>
       <p className="text-[14px] text-slate-600 mt-1.5 leading-relaxed">{CUSTOMER_LEAD_NOTE.desc}</p>
-      <form
-        className="mt-4 grid sm:grid-cols-[1fr_1fr_auto] gap-2.5"
-        onSubmit={(e) => {
-          e.preventDefault()
-          setDone(true)
-        }}
-      >
+      <form className="mt-4 grid sm:grid-cols-[1fr_1fr_auto] gap-2.5" onSubmit={submit}>
         <input className="input" required placeholder="Họ tên của bạn" aria-label="Họ tên" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input className="input" required placeholder="Số điện thoại / Zalo" inputMode="tel" aria-label="Số điện thoại hoặc Zalo" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <button className="btn-primary" type="submit">Nhận danh sách</button>
+        <button className="btn-primary" type="submit" disabled={busy}>{busy ? 'Đang gửi…' : 'Nhận danh sách'}</button>
       </form>
+      {err && <p className="mt-2 text-[12.5px] text-redflag-fg">{err}</p>}
       <p className="mt-2 text-[12px] text-slate-400">Thông tin chỉ dùng để gửi danh sách nhà thuốc — không quảng cáo spam.</p>
     </div>
   )
