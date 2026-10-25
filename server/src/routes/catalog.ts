@@ -67,4 +67,19 @@ r.post('/partner-registrations', (req, res) => {
   })
 })
 
+// Đăng ký quan tâm của khách hàng cá nhân (form trên trang chủ)
+r.post('/patient-leads', (req, res) => {
+  const b = req.body || {}
+  if (!b.full_name || !String(b.full_name).trim()) return res.status(400).json({ error: 'Vui lòng nhập họ tên.' })
+  if (!/^0\d{9}$/.test(b.phone || '')) return res.status(400).json({ error: 'Số điện thoại/Zalo không hợp lệ (10 số, bắt đầu bằng 0).' })
+  const info = db
+    .prepare(`INSERT INTO patient_leads (full_name, phone, interest, status, created_at) VALUES (?, ?, ?, 'new', ?)`)
+    .run(String(b.full_name).trim(), b.phone, b.interest || 'Muốn dùng BriMed', nowIso())
+  res.json({
+    ok: true,
+    id: Number(info.lastInsertRowid),
+    message: 'Đã nhận thông tin! BriMed sẽ liên hệ hướng dẫn bạn nhận 2 toa miễn phí trong 24 giờ.',
+  })
+})
+
 export default r

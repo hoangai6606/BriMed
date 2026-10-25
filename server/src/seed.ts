@@ -5,7 +5,7 @@ import { sha256 } from './auth.js'
 
 console.log('Xoá dữ liệu cũ và nạp dữ liệu mẫu BriMed...')
 db.exec(`
-DELETE FROM partner_registrations; DELETE FROM reminders; DELETE FROM substitution_requests;
+DELETE FROM patient_leads; DELETE FROM partner_registrations; DELETE FROM reminders; DELETE FROM substitution_requests;
 DELETE FROM transactions; DELETE FROM orders; DELETE FROM prescriptions; DELETE FROM consultations;
 DELETE FROM inventory; DELETE FROM pharmacies; DELETE FROM medicines;
 DELETE FROM health_profiles; DELETE FROM sessions; DELETE FROM users;
@@ -298,6 +298,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
   'Nhà thuốc Bình Dân', '35 Đường số 17, Gò Vấp', 'P.16', 'Gò Vấp', 'Hoàng Bình Dân', '0933111222',
   'GP-KD-2026-0412', 'DS. Hoàng Bình Dân', 'MShop (phần mềm nội bộ)', 0, '1_month', 1, 'new', daysAgo(1)
 )
+
+// Khách hàng cá nhân quan tâm (form đăng ký trên trang chủ)
+const insLead = db.prepare(`INSERT INTO patient_leads (full_name, phone, interest, status, created_at) VALUES (?, ?, ?, ?, ?)`)
+insLead.run('Trần Thị Bích', '0938555111', 'Muốn dùng BriMed cho viêm mũi họng', 'new', daysAgo(1))
+insLead.run('Lê Quốc Cường', '0977444222', 'Hỏi về cách dùng cho cả gia đình', 'contacted', daysAgo(2))
+insLead.run('Phan Nhật Minh', '0903332288', 'Muốn nạp token dùng tại quầy', 'new', hoursAgo(3))
 
 const counts = [
   ['users', db.prepare('SELECT COUNT(*) c FROM users').get().c],

@@ -30,7 +30,7 @@ export const homeByRole: Record<string, string> = {
   patient: '/',
   doctor: '/',
   pharmacy: '/',
-  admin: '/',
+  admin: '/admin/dashboard',
 }
 
 export const useAuth = create<AuthState>((set) => ({

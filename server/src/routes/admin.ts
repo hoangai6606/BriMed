@@ -113,6 +113,17 @@ r.get('/consultations', (_req, res) => {
   res.json({ consultations: rows.map((c: any) => ({ ...c, red_flag_reasons: JSON.parse(c.red_flag_reasons || '[]') })) })
 })
 
+r.get('/patient-leads', (_req, res) => {
+  res.json({ leads: db.prepare('SELECT * FROM patient_leads ORDER BY created_at DESC').all() })
+})
+
+r.put('/patient-leads/:id', (req, res) => {
+  const row: any = db.prepare('SELECT * FROM patient_leads WHERE id = ?').get(req.params.id)
+  if (!row) return res.status(404).json({ error: 'Không tìm thấy khách hàng quan tâm.' })
+  db.prepare('UPDATE patient_leads SET status = ? WHERE id = ?').run(req.body?.status || row.status, req.params.id)
+  res.json({ ok: true })
+})
+
 // Reset toàn bộ dữ liệu về seed mẫu
 r.post('/reset-demo', async (_req, res) => {
   const { execFileSync } = await import('node:child_process')

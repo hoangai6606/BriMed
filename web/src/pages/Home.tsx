@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { QrCode, Clock, ShieldCheck, Pill, Stethoscope, CheckCircle2, BadgeCheck, XCircle, ChevronDown, Store, Ban, Wallet, Star, UserX, AlertTriangle, Gift } from 'lucide-react'
 import { SeoMeta } from '../components/common/SeoMeta'
 import { TokenCheckoutMock } from '../components/domain/TokenCheckoutMock'
+import { api } from '../api/client'
 import { STEPS_FLOW, SEO, CUSTOMER_BENEFITS, CUSTOMER_PRICING, ELIGIBLE, NOT_ELIGIBLE, CUSTOMER_FAQ, CUSTOMER_PAIN_POINTS, HOME_STATS, CUSTOMER_TESTIMONIALS, CUSTOMER_LEAD_NOTE } from '../data/constants'
 
 export function PublicHeader() {
@@ -94,6 +95,55 @@ export function TestimonialCard({ name, meta, quote }: { name: string; meta: str
         </div>
       </figcaption>
     </figure>
+  )
+}
+
+// Form dang ky su dung - thong tin chuyen ve Bang dieu khien quan tri
+function LeadForm() {
+  const [form, setForm] = useState({ full_name: '', phone: '' })
+  const [done, setDone] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setErr('')
+    try {
+      const d = await api('/catalog/patient-leads', { method: 'POST', body: JSON.stringify(form) })
+      setDone(d.message)
+      setForm({ full_name: '', phone: '' })
+    } catch (e: any) {
+      setErr(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="card p-6 text-center border-2 border-mint-fg/40">
+        <CheckCircle2 size={40} className="mx-auto text-mint-fg mb-3" />
+        <h3 className="font-bold text-[17px] text-bluedark">Đã nhận thông tin!</h3>
+        <p className="text-[14px] text-slate-600 mt-1.5 leading-relaxed">{done}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card p-5 border-2 border-primary/25">
+      <h2 className="font-extrabold text-[19px] text-bluedark">Đăng ký sử dụng BriMed</h2>
+      <p className="text-[14px] text-slate-600 mt-1.5 leading-relaxed">
+        Để lại thông tin — BriMed sẽ liên hệ hướng dẫn bạn dùng 2 toa miễn phí đầu tiên tại nhà thuốc gần nhất.
+      </p>
+      <form className="mt-4 grid sm:grid-cols-[1fr_1fr_auto] gap-2.5" onSubmit={submit}>
+        <input className="input" required placeholder="Họ tên của bạn" aria-label="Ho ten" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+        <input className="input" required placeholder="Số điện thoại / Zalo" inputMode="tel" aria-label="So dien thoai hoac Zalo" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <button className="btn-primary" disabled={busy}>{busy ? 'Đang gửi…' : 'Đăng ký ngay'}</button>
+      </form>
+      {err && <p className="mt-2 text-[12.5px] text-redflag-fg">{err}</p>}
+      <p className="mt-2 text-[12px] text-slate-400">Thông tin chỉ dùng để liên hệ hướng dẫn sử dụng — không quảng cáo spam.</p>
+    </div>
   )
 }
 
@@ -264,6 +314,9 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="max-w-3xl mx-auto px-4 pb-12 pt-2">
+          <LeadForm />
+        </section>
       </main>
       <PublicFooter />
     </div>
