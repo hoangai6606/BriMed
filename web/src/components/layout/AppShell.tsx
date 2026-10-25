@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import {
-  Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope,
+  Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope, Store,
   ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon,
 } from 'lucide-react'
 import { useAuth } from '../../store/auth'
@@ -33,8 +33,8 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
   ],
   admin: [
     { to: '/admin/dashboard', label: 'Tổng quan', icon: ShieldCheck },
-    { to: '/admin/dashboard?tab=users', label: 'Tài khoản', icon: UserRound },
-    { to: '/admin/dashboard?tab=medicines', label: 'Danh mục', icon: Pill },
+    { to: '/admin/dashboard?tab=registrations', label: 'Đối tác', icon: Store },
+    { to: '/admin/dashboard?tab=leads', label: 'Khách hàng', icon: UserRound },
   ],
 }
 

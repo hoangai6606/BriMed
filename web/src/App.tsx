@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import PackagePage from './pages/PackagePage'
 import Partner from './pages/Partner'
 import Auth from './pages/Auth'
+import AdminDashboard from './pages/admin/Dashboard'
 import PatientDashboard from './pages/patient/Dashboard'
 import HealthProfile from './pages/patient/HealthProfile'
 import Consultation from './pages/patient/Consultation'
@@ -54,6 +55,9 @@ export default function App() {
           <Route path="/doctor/prescriptions" element={<DoctorPrescriptions />} />
         </Route>
 
+        <Route element={<RequireRole role="admin"><AppShell /></RequireRole>}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toasts />
