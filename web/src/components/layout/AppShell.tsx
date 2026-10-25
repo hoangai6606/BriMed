@@ -35,6 +35,7 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
   ],
   admin: [
     { to: '/admin/dashboard', label: 'Tổng quan', icon: ShieldCheck },
+    { to: '/admin/dashboard?tab=leads', label: 'Khách hàng', icon: UserRound },
     { to: '/admin/dashboard?tab=users', label: 'Tài khoản', icon: UserRound },
     { to: '/admin/dashboard?tab=medicines', label: 'Danh mục', icon: Pill },
   ],

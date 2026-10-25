@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   ShieldCheck, AlertTriangle, Timer, XCircle, Pill, RefreshCcw, Users, Coins,
-  Store, TrendingUp, RotateCcw, FileCheck2, ListChecks,
+  Store, TrendingUp, RotateCcw, FileCheck2, ListChecks, UserPlus,
 } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { api, fmtDate, fmtVnd } from '../../api/client'
@@ -11,7 +11,7 @@ import { useUi } from '../../store/ui'
 import { useAuth } from '../../store/auth'
 import { DISEASE_GROUPS, ROLE_LABELS } from '../../data/constants'
 
-type Tab = 'kpi' | 'users' | 'medicines' | 'diseases' | 'registrations'
+type Tab = 'kpi' | 'leads' | 'users' | 'medicines' | 'diseases' | 'registrations'
 
 export default function AdminDashboard() {
   const [params, setParams] = useSearchParams()
@@ -20,6 +20,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([])
   const [medicines, setMedicines] = useState<any[]>([])
   const [regs, setRegs] = useState<any[]>([])
+  const [leads, setLeads] = useState<any[]>([])
   const [busy, setBusy] = useState(false)
   const toast = useUi((s) => s.toast)
   const refreshAuth = useAuth((s) => s.refresh)
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
     api('/admin/users').then((d) => setUsers(d.users)).catch(() => {})
     api('/admin/medicines').then((d) => setMedicines(d.medicines)).catch(() => {})
     api('/admin/partner-registrations').then((d) => setRegs(d.registrations)).catch(() => {})
+    api('/admin/patient-leads').then((d) => setLeads(d.leads)).catch(() => {})
   }
   useEffect(load, [])
 
@@ -51,6 +53,12 @@ export default function AdminDashboard() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const updateLead = async (l: any, status: string) => {
+    await api(`/admin/patient-leads/${l.id}`, { method: 'PUT', body: JSON.stringify({ status }) }).catch(() => {})
+    toast(status === 'converted' ? 'Đã ghi nhận khách hàng sử dụng dịch vụ.' : 'Đã đánh dấu đã liên hệ.', 'success')
+    load()
   }
 
   const toggleOnline = async (u: any) => {
@@ -85,6 +93,7 @@ export default function AdminDashboard() {
           ['medicines', `Danh mục thuốc (${kpi.counts.medicines})`],
           ['diseases', 'Danh mục bệnh TT 30/2023'],
           ['registrations', `Đăng ký đối tác (${kpi.counts.partner_registrations})`],
+          ['leads', `Khách hàng quan tâm (${leads.length})`],
         ] as [Tab, string][]).map(([k, label]) => (
           <button
             key={k}
@@ -250,6 +259,40 @@ export default function AdminDashboard() {
             <strong>Không nhận:</strong> viêm phế quản, viêm phổi, tiêu chảy (ngoài danh mục), sốt cao kéo dài, trẻ nhỏ, thai phụ,
             thuốc gây nghiện/hướng thần. Bác sĩ có quyền từ chối kê đơn — tỷ lệ từ chối được theo dõi ở tab KPI.
           </div>
+        </section>
+      )}
+
+      {tab === 'leads' && (
+        <section className="card p-4">
+          <h2 className="section-title flex items-center gap-2 mb-2"><UserPlus size={18} className="text-pink" /> Khách hàng quan tâm (form đăng ký trên trang chủ)</h2>
+          {leads.length === 0 ? (
+            <p className="text-[13.5px] text-slate-400 text-center py-3">Chưa có khách hàng nào đăng ký.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {leads.map((l) => (
+                <li key={l.id} className="py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-[14px] font-bold text-slate-700">{l.full_name}</div>
+                      <div className="text-[12.5px] text-slate-500">{l.phone} · {fmtDate(l.created_at)}</div>
+                      <div className="text-[12px] text-slate-400 mt-0.5">{l.interest}</div>
+                    </div>
+                    <span className={`badge ${
+                      l.status === 'converted' ? 'bg-mint-bg text-mint-fg' : l.status === 'contacted' ? 'bg-lightblue text-bluedark' : 'bg-lightpink text-pink-dark'
+                    }`}>
+                      {l.status === 'new' ? 'Mới' : l.status === 'contacted' ? 'Đã liên hệ' : 'Đã dùng dịch vụ'}
+                    </span>
+                  </div>
+                  {l.status === 'new' && (
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => updateLead(l, 'contacted')} className="btn-ghost !min-h-[34px] !px-3 !text-[12.5px]">Đánh dấu đã liên hệ</button>
+                      <button onClick={() => updateLead(l, 'converted')} className="btn-primary !min-h-[34px] !px-3 !text-[12.5px]">Đã dùng dịch vụ</button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
