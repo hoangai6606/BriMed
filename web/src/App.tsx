@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth, homeByRole } from './store/auth'
 import { Toasts } from './components/common/Toasts'
 import { PageLoading } from './components/common/Misc'
-import AppShell from './components/layout/AppShell'
 import Home from './pages/Home'
 import PackagePage from './pages/PackagePage'
 import Partner from './pages/Partner'
@@ -34,7 +33,7 @@ export default function App() {
         <Route path="/goi-1-thang-brimed-nha-thuoc" element={<PackagePage pkg="1" />} />
         <Route path="/goi-3-thang-brimed-nha-thuoc" element={<PackagePage pkg="3" />} />
         <Route path="/auth" element={<Auth />} />
-        <Route element={<RequireRole role="admin"><AppShell /></RequireRole>}>
+        <Route element={<RequireRole role="admin"><AdminDashboard /></RequireRole>}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -20,9 +20,7 @@ interface AuthState {
   pharmacy?: any
   loading: boolean
   refresh: () => Promise<void>
-  login: (phone: string, password: string, role?: string) => Promise<void>
-  register: (payload: any) => Promise<void>
-  quickLogin: (persona: string) => Promise<void>
+  login: (phone: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -52,23 +50,11 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
 
-  login: async (phone, password, role) => {
+  login: async (phone, password) => {
     const d = await api('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ phone, password, role }),
+      body: JSON.stringify({ phone, password }),
     })
-    setToken(d.token)
-    set({ user: d.user, pharmacy: d.pharmacy || null })
-  },
-
-  register: async (payload) => {
-    const d = await api('/auth/register', { method: 'POST', body: JSON.stringify(payload) })
-    setToken(d.token)
-    set({ user: d.user, pharmacy: d.pharmacy || null })
-  },
-
-  quickLogin: async (persona) => {
-    const d = await api('/auth/quick-login', { method: 'POST', body: JSON.stringify({ persona }) })
     setToken(d.token)
     set({ user: d.user, pharmacy: d.pharmacy || null })
   },

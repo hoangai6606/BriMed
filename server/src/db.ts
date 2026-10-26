@@ -1,28 +1,30 @@
-import Database from 'better-sqlite3'
-import fs from 'node:fs'
-import path from 'node:path'
+import { Pool } from 'pg'
+import crypto from 'node:crypto'
 
-const dataDir = path.join(import.meta.dirname, '..', 'data')
-fs.mkdirSync(dataDir, { recursive: true })
+// Kết nối Neon Postgres — connection string lấy từ biến môi trường DATABASE_URL
+const connectionString = process.env.DATABASE_URL || ''
 
-// Kiểu mở có chủ đích: better-sqlite3 v12 trả `unknown` cho .get()/.all(),
-// trong khi toàn bộ route đã xử lý dữ liệu dạng row lỏng (any) — xem routes/*.
-export const db: any = new Database(path.join(dataDir, 'brimed.db'))
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+export const pool = new Pool({
+  connectionString: connectionString || undefined,
+  ssl: connectionString ? { rejectUnauthorized: false } : undefined,
+  max: 5,
+})
 
 export const nowIso = () => new Date().toISOString()
+export const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex')
 
-db.exec(`
+// Lược đồ đầy đủ của nền tảng (Giai đoạn 1 chỉ sử dụng: users, sessions,
+// partner_registrations, patient_leads — các bảng còn lại chuẩn bị cho giai đoạn sau)
+const DDL = `
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   cccd TEXT DEFAULT '',
   role TEXT NOT NULL CHECK (role IN ('patient','doctor','pharmacy','admin')),
-  token_balance INTEGER NOT NULL DEFAULT 20,
-  free_prescriptions INTEGER NOT NULL DEFAULT 2,
+  token_balance INTEGER NOT NULL DEFAULT 0,
+  free_prescriptions INTEGER NOT NULL DEFAULT 0,
   doctor_specialty TEXT,
   doctor_license TEXT,
   doctor_online INTEGER NOT NULL DEFAULT 0,
@@ -37,7 +39,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS health_profiles (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   dob TEXT DEFAULT '',
   gender TEXT DEFAULT '',
@@ -45,14 +47,14 @@ CREATE TABLE IF NOT EXISTS health_profiles (
   drug_allergies TEXT DEFAULT '',
   pregnant INTEGER NOT NULL DEFAULT 0,
   current_medicines TEXT DEFAULT '',
-  temperature REAL DEFAULT 36.5,
+  temperature DOUBLE PRECISION DEFAULT 36.5,
   spo2 INTEGER DEFAULT 98,
   blood_pressure TEXT DEFAULT '',
   share_consent INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS medicines (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   active_ingredient TEXT NOT NULL,
   pack_size TEXT DEFAULT '',
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS medicines (
 );
 
 CREATE TABLE IF NOT EXISTS pharmacies (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   ward TEXT DEFAULT '',
@@ -81,7 +83,7 @@ CREATE TABLE IF NOT EXISTS pharmacies (
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   pharmacy_id INTEGER NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
   medicine_id INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
   sell_price INTEGER NOT NULL DEFAULT 0,
@@ -91,7 +93,7 @@ CREATE TABLE IF NOT EXISTS inventory (
 );
 
 CREATE TABLE IF NOT EXISTS consultations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   doctor_id INTEGER REFERENCES users(id),
   disease_group TEXT NOT NULL,
@@ -118,7 +120,7 @@ CREATE TABLE IF NOT EXISTS consultations (
 );
 
 CREATE TABLE IF NOT EXISTS prescriptions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   national_code TEXT NOT NULL UNIQUE,
   consultation_id INTEGER REFERENCES consultations(id),
   patient_id INTEGER NOT NULL REFERENCES users(id),
@@ -135,7 +137,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
 );
 
 CREATE TABLE IF NOT EXISTS orders (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   prescription_id INTEGER NOT NULL REFERENCES prescriptions(id),
   patient_id INTEGER NOT NULL REFERENCES users(id),
   pharmacy_id INTEGER NOT NULL REFERENCES pharmacies(id),
@@ -152,7 +154,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 CREATE TABLE IF NOT EXISTS transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
   type TEXT NOT NULL,
   amount_token INTEGER NOT NULL DEFAULT 0,
@@ -164,7 +166,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 CREATE TABLE IF NOT EXISTS substitution_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   prescription_id INTEGER NOT NULL REFERENCES prescriptions(id),
   order_id INTEGER,
   pharmacy_id INTEGER NOT NULL REFERENCES pharmacies(id),
@@ -178,7 +180,7 @@ CREATE TABLE IF NOT EXISTS substitution_requests (
 );
 
 CREATE TABLE IF NOT EXISTS reminders (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   prescription_id INTEGER,
   medicine_name TEXT NOT NULL,
@@ -189,7 +191,7 @@ CREATE TABLE IF NOT EXISTS reminders (
 );
 
 CREATE TABLE IF NOT EXISTS partner_registrations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   pharmacy_name TEXT NOT NULL,
   address TEXT NOT NULL,
   ward TEXT DEFAULT '',
@@ -207,28 +209,64 @@ CREATE TABLE IF NOT EXISTS partner_registrations (
 );
 
 CREATE TABLE IF NOT EXISTS patient_leads (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
   interest TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','converted')),
   created_at TEXT NOT NULL
 );
-`)
+`
 
-export function publicUser(u: any) {
-  if (!u) return null
-  return {
-    id: u.id,
-    full_name: u.full_name,
-    phone: u.phone,
-    cccd: u.cccd,
-    role: u.role,
-    token_balance: u.token_balance,
-    free_prescriptions: u.free_prescriptions,
-    doctor_specialty: u.doctor_specialty,
-    doctor_license: u.doctor_license,
-    doctor_online: !!u.doctor_online,
-    pharmacy_id: u.pharmacy_id,
+let ready: Promise<void> | null = null
+
+// Khởi tạo lược đồ + dữ liệu nền (chạy đúng một lần cho mỗi tiến trình)
+export function ensureDb(): Promise<void> {
+  if (!ready) {
+    ready = (async () => {
+      await pool.query(DDL)
+
+      // Tài khoản quản trị viên duy nhất của Giai đoạn 1
+      const admin = await pool.query(`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`)
+      if (admin.rows[0].c === 0) {
+        await pool.query(
+          `INSERT INTO users (full_name, phone, password_hash, role, token_balance, free_prescriptions, created_at)
+           VALUES ($1, $2, $3, 'admin', 0, 0, $4)`,
+          ['Quản trị viên BriMed', '0900000001', sha256('admin@2026'), nowIso()]
+        )
+      }
+
+      // Khách hàng quan tâm mẫu (form đăng ký trên trang chủ)
+      const leads = await pool.query(`SELECT COUNT(*)::int AS c FROM patient_leads`)
+      if (leads.rows[0].c === 0) {
+        await pool.query(
+          `INSERT INTO patient_leads (full_name, phone, interest, status, created_at) VALUES
+           ($1, $2, $3, 'new', $4), ($5, $6, $7, 'contacted', $8), ($9, $10, $11, 'new', $12)`,
+          [
+            'Trần Thị Bích', '0938555111', 'Muốn dùng BriMed cho viêm mũi họng', nowIso(),
+            'Lê Quốc Cường', '0977444222', 'Hỏi về cách dùng cho cả gia đình', nowIso(),
+            'Phan Nhật Minh', '0903332288', 'Muốn nạp token dùng tại quầy', nowIso(),
+          ]
+        )
+      }
+
+      // Nhà thuốc đối tác mẫu (form đăng ký hợp tác)
+      const regs = await pool.query(`SELECT COUNT(*)::int AS c FROM partner_registrations`)
+      if (regs.rows[0].c === 0) {
+        await pool.query(
+          `INSERT INTO partner_registrations (pharmacy_name, address, ward, district, owner_name, phone, license_number, pharmacist_name, software, csdl_synced, plan, agreed, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, '3_months', 1, 'new', $10),
+                  ($11, $12, $13, $14, $15, $16, $17, $18, $19, 0, '1_month', 1, 'new', $20)`,
+          [
+            'Nhà thuốc Minh Châu', '128 Nguyễn Oanh', 'P.17', 'Gò Vấp', 'Nguyễn Minh Châu', '0903777001', 'GP-KD-2026-0123', 'DS. Nguyễn Minh Châu', 'MShop', nowIso(),
+            'Nhà thuốc Bình Dân', '35 Đường số 17', 'P.16', 'Gò Vấp', 'Hoàng Bình Dân', '0933111222', 'GP-KD-2026-0412', 'DS. Hoàng Bình Dân', 'MShop', nowIso(),
+          ]
+        )
+      }
+    })().catch((e) => {
+      ready = null
+      throw e
+    })
   }
+  return ready
 }
