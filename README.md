@@ -1,5 +1,7 @@
 # BriMed (Since 2026) — Toa thuốc điện tử nhanh tại quầy
 
+> **Tài khoản theo vai trò (không còn tài khoản demo):** admin 0900000001/admin123 · bác sĩ 0908888881 hoặc 0908888882 /123456 · nhà thuốc 0907777771–73 /123456 · bệnh nhân tự đăng ký.
+>
 > **Phiên bản: Giai đoạn 4 — Bản hoàn thiện, sẵn sàng thương mại hóa.** Đầy đủ phạm vi 4 giai đoạn: nền móng, khám–kê đơn từ xa, vận hành nhà thuốc & quản trị, cùng phần hoàn thiện nội dung/marketing và kiểm thử các tình huống đặc biệt.
 > Branch này chứa phạm vi Giai đoạn 1: thiết kế mobile-first, dữ liệu mẫu Gò Vấp, tài khoản & phân quyền 4 vai trò, các trang thông tin công khai. Phân hệ khám–kê đơn từ xa, nhà thuốc và quản trị thuộc các giai đoạn tiếp theo.
 

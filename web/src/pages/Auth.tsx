@@ -6,26 +6,19 @@ import { useAuth, homeByRole } from '../store/auth'
 import { useUi } from '../store/ui'
 import { ROLE_LABELS } from '../data/constants'
 
-const ROLES = [
-  { key: 'patient', label: 'Bệnh nhân', icon: UserRound },
-  { key: 'doctor', label: 'Bác sĩ', icon: Stethoscope },
-  { key: 'pharmacy', label: 'Nhà thuốc', icon: Pill },
-  { key: 'admin', label: 'Quản trị viên', icon: ShieldCheck },
-]
-
 export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [role, setRole] = useState('patient')
   const [form, setForm] = useState({ full_name: '', phone: '', password: '', cccd: '' })
   const [busy, setBusy] = useState(false)
-  const { login, register, quickLogin } = useAuth()
+  const { login, register } = useAuth()
   const toast = useUi((s) => s.toast)
   const navigate = useNavigate()
   const location = useLocation() as any
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  const afterAuth = (r: string) => {
+  const afterAuth = () => {
     toast('Đăng nhập thành công. Chào mừng trở lại BriMed!', 'success')
+    const r = useAuth.getState().user?.role ?? ''
     navigate(location.state?.from || homeByRole[r] || '/')
   }
 
@@ -34,24 +27,12 @@ export default function Auth() {
     setBusy(true)
     try {
       if (mode === 'login') {
-        await login(form.phone, form.password, role)
-        afterAuth(role)
+        await login(form.phone, form.password)
+        afterAuth()
       } else {
-        await register({ ...form, role })
-        afterAuth(role)
+        await register({ ...form, role: 'patient' })
+        afterAuth()
       }
-    } catch (err: any) {
-      toast(err.message, 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const demo = async (persona: string) => {
-    setBusy(true)
-    try {
-      await quickLogin(persona)
-      afterAuth(persona)
     } catch (err: any) {
       toast(err.message, 'error')
     } finally {
@@ -77,25 +58,6 @@ export default function Auth() {
           <p className="text-[13.5px] text-slate-500 mt-1">
             Đơn thuốc an toàn cho bạn an tâm — truy cập theo đúng vai trò của bạn.
           </p>
-
-          {/* Chọn vai trò */}
-          <div className="mt-4">
-            <span className="label">Bạn là *</span>
-            <div className="grid grid-cols-2 gap-2">
-              {ROLES.map((r) => (
-                <button
-                  type="button"
-                  key={r.key}
-                  onClick={() => setRole(r.key)}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-[13.5px] font-bold transition ${
-                    role === r.key ? 'border-primary bg-lightblue/40 text-bluedark' : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                  }`}
-                >
-                  <r.icon size={17} /> {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <form onSubmit={submit} className="mt-4 space-y-3.5">
             {mode === 'register' && (
@@ -130,23 +92,6 @@ export default function Auth() {
             </button>
           </p>
 
-          <div className="mt-4 flex items-center gap-2 text-[12px] text-slate-400">
-            <hr className="flex-1 border-slate-200" /> hoặc <hr className="flex-1 border-slate-200" />
-          </div>
-
-          {/* Đăng nhập nhanh theo vai trò */}
-          <div className="mt-3">
-            <div className="text-[12px] font-bold text-slate-500 mb-2 flex items-center gap-1.5">
-              <Users size={14} /> Đăng nhập nhanh theo vai trò
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {ROLES.map((r) => (
-                <button key={r.key} disabled={busy} onClick={() => demo(r.key)} className="btn-outline !text-[13px] !px-2">
-                  <r.icon size={15} /> {ROLE_LABELS[r.key]}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="card p-4 mt-4 bg-lightblue/25 flex gap-3">
