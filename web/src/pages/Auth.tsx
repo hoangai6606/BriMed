@@ -92,6 +92,8 @@ export default function Auth() {
             </button>
           </p>
 
+        </div>
+
         <div className="card p-4 mt-4 bg-lightblue/25 flex gap-3">
           <ScanLine size={22} className="text-primary shrink-0 mt-0.5" />
           <p className="text-[13px] text-slate-600 leading-relaxed">
