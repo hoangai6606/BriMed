@@ -18,7 +18,7 @@ export default function Auth() {
 
   const afterAuth = () => {
     toast('Đăng nhập thành công. Chào mừng trở lại BriMed!', 'success')
-    const r = useAuth.getState().user?.role
+    const r = useAuth.getState().user?.role ?? ''
     navigate(location.state?.from || homeByRole[r] || '/')
   }
 
