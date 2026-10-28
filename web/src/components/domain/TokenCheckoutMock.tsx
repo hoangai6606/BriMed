@@ -31,7 +31,7 @@ export function TokenCheckoutMock() {
   return (
     <div className="card overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-bluedark px-4 py-3 flex items-center justify-between">
+      <div className="bg-primary px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-white">
           <span className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
             <Coins size={16} />
@@ -220,7 +220,7 @@ export function TokenCheckoutMock() {
               Làm lại
             </button>
             <Link to="/auth" className="btn-primary w-full mt-2 !text-[13.5px]">
-              Tạo tài khoản để dùng thật
+              Tạo tài khoản &amp; đặt khám ngay
             </Link>
             <p className="text-[11px] text-slate-400 mt-2">Biên nhận điện tử đã được gửi qua Zalo/SMS.</p>
           </div>
