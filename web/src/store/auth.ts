@@ -20,14 +20,15 @@ interface AuthState {
   pharmacy?: any
   loading: boolean
   refresh: () => Promise<void>
-  login: (phone: string, password: string) => Promise<void>
+  login: (phone: string, password: string, role?: string) => Promise<void>
+  register: (payload: any) => Promise<void>
   logout: () => void
 }
 
 export const homeByRole: Record<string, string> = {
-  patient: '/',
-  doctor: '/',
-  pharmacy: '/',
+  patient: '/patient/dashboard',
+  doctor: '/doctor/dashboard',
+  pharmacy: '/pharmacy/dashboard',
   admin: '/admin/dashboard',
 }
 
@@ -50,11 +51,17 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
 
-  login: async (phone, password) => {
+  login: async (phone, password, role) => {
     const d = await api('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ phone, password }),
+      body: JSON.stringify({ phone, password, role }),
     })
+    setToken(d.token)
+    set({ user: d.user, pharmacy: d.pharmacy || null })
+  },
+
+  register: async (payload) => {
+    const d = await api('/auth/register', { method: 'POST', body: JSON.stringify(payload) })
     setToken(d.token)
     set({ user: d.user, pharmacy: d.pharmacy || null })
   },

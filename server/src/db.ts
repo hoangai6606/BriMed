@@ -226,6 +226,15 @@ export function ensureDb(): Promise<void> {
     ready = (async () => {
       await pool.query(DDL)
 
+      // Cơ sở dữ liệu trống (lần đầu chạy) — nạp toàn bộ dữ liệu mẫu
+      // (tài khoản 4 vai trò, nhà thuốc, thuốc, tồn kho, tư vấn, đơn thuốc...)
+      const users = await pool.query(`SELECT COUNT(*)::int AS c FROM users`)
+      if (users.rows[0].c === 0) {
+        const { seedDb } = await import('./seed')
+        await seedDb()
+        return
+      }
+
       // Tài khoản quản trị viên duy nhất của Giai đoạn 1
       const admin = await pool.query(`SELECT COUNT(*)::int AS c FROM users WHERE role = 'admin'`)
       if (admin.rows[0].c === 0) {

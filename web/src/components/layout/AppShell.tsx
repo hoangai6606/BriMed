@@ -1,12 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope,
   ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon,
 } from 'lucide-react'
 import { useAuth } from '../../store/auth'
 import { ROLE_LABELS } from '../../data/constants'
-import { RoleSwitcher } from '../domain/RoleSwitcher'
 
 interface Tab {
   to: string
@@ -44,30 +43,12 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
 export default function AppShell() {
   const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
-  const [switching, setSwitching] = useState(false)
 
   const tabs = useMemo(() => (user ? NAV_BY_ROLE[user.role] || [] : []), [user])
   if (!user) return null
 
   const roleColor =
     user.role === 'doctor' ? 'bg-mint-fg' : user.role === 'pharmacy' ? 'bg-pink' : user.role === 'admin' ? 'bg-slate-700' : 'bg-primary'
-
-  const switchRole = async (persona: string) => {
-    setSwitching(true)
-    try {
-      const { quickLogin } = useAuth.getState()
-      await quickLogin(persona)
-      const homes: Record<string, string> = {
-        patient: '/patient/dashboard',
-        doctor: '/doctor/dashboard',
-        pharmacy: '/pharmacy/dashboard',
-        admin: '/admin/dashboard',
-      }
-      navigate(homes[persona])
-    } finally {
-      setSwitching(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -185,8 +166,6 @@ export default function AppShell() {
           ))}
         </div>
       </nav>
-
-      <RoleSwitcher onSwitch={switchRole} switching={switching} currentRole={user.role} />
     </div>
   )
 }
