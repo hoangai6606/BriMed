@@ -1,15 +1,9 @@
 import { Link } from 'react-router-dom'
 import { QrCode, Clock, ShieldCheck, Pill, Stethoscope, CheckCircle2, XCircle, Store, Ban, Wallet, Star, UserX, AlertTriangle } from 'lucide-react'
 import { SeoMeta } from '../components/common/SeoMeta'
-import LandingNavbar from '../components/landing/LandingNavbar'
-import Hero from '../components/landing/Hero'
-import TrustMarquee from '../components/landing/TrustMarquee'
-import BentoShowcase from '../components/landing/BentoShowcase'
-import HowItWorks from '../components/landing/HowItWorks'
-import PricingSection from '../components/landing/PricingSection'
-import SocialProof from '../components/landing/SocialProof'
-import FaqCta from '../components/landing/FaqCta'
-import { SEO, ELIGIBLE, NOT_ELIGIBLE } from '../data/constants'
+import Landing from '../components/landing/Landing'
+import { api } from '../api/client'
+import { SEO } from '../data/constants'
 
 // ===== Các component dùng chung với trang đối tác & landing gói (giữ nguyên hành vi) =====
 export function PublicHeader() {
@@ -104,64 +98,21 @@ export function TestimonialCard({ name, meta, quote }: { name: string; meta: str
   )
 }
 
-// ===== Customer Landing Page — "Neo-Clinical Playfulness" =====
-// Điều hướng giữ nguyên: mọi CTA đăng nhập/khám về /auth, nhà thuốc về /nha-thuoc-doi-tac
+// ===== Customer Landing Page theo thiết kế Figma Make =====
+// Form đăng ký lưu về server (patient_leads) cho bảng điều khiển quản trị
 export default function Home() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-white text-slate-800">
+    <>
       <SeoMeta
         title="BriMed – Khám bác sĩ online & mua thuốc an toàn, minh bạch"
         description="BriMed: kết nối bác sĩ thật ngay tại quầy thuốc — gọi ngắn 1-2 phút, đơn điện tử ký số, nhận thuốc sau ~10 phút. 2 toa đầu miễn phí, không cần cài app."
       />
-      <LandingNavbar />
-
-      <main>
-        <Hero />
-        <TrustMarquee />
-        <BentoShowcase />
-        <HowItWorks />
-
-        {/* Phạm vi an toàn — giữ thông tin y khoa quan trọng */}
-        <section className="py-16 sm:py-20">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="grid items-stretch gap-5 md:grid-cols-2">
-              <div className="flex h-full flex-col rounded-3xl border border-emerald-200/70 bg-emerald-50/50 p-6 backdrop-blur sm:p-7">
-                <h3 className="flex items-center gap-2 text-[17px] font-extrabold text-emerald-700">
-                  <ShieldCheck size={20} /> Nên dùng BriMed khi bạn bị
-                </h3>
-                <ul className="mt-4 flex-1 space-y-2.5">
-                  {ELIGIBLE.map((x) => (
-                    <li key={x} className="flex gap-2 text-[14.5px] leading-snug text-slate-700">
-                      <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-500" /> {x}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex h-full flex-col rounded-3xl border border-rose-200/70 bg-rose-50/50 p-6 backdrop-blur sm:p-7">
-                <h3 className="flex items-center gap-2 text-[17px] font-extrabold text-rose-600">
-                  <XCircle size={20} /> Hãy đi khám trực tiếp nếu
-                </h3>
-                <ul className="mt-4 flex-1 space-y-2.5">
-                  {NOT_ELIGIBLE.map((x) => (
-                    <li key={x} className="flex gap-2 text-[14.5px] leading-snug text-slate-700">
-                      <XCircle size={17} className="mt-0.5 shrink-0 text-rose-400" /> {x}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[13px] font-semibold text-slate-400">
-              <Stethoscope size={14} className="text-emerald-500" /> Bác sĩ thật — đơn thật — luôn có quyền từ chối kê đơn vì an toàn của bạn
-            </p>
-          </div>
-        </section>
-
-        <PricingSection />
-        <SocialProof />
-        <FaqCta />
-      </main>
-
-      <PublicFooter />
-    </div>
+      <Landing
+        submitLead={async (form) => {
+          const d = await api('/catalog/patient-leads', { method: 'POST', body: JSON.stringify(form) })
+          return d.message as string
+        }}
+      />
+    </>
   )
 }
