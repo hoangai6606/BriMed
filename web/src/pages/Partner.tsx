@@ -99,8 +99,8 @@ function PartnerForm() {
         <div>
           <label className="label" htmlFor="pf-plan">Gói quan tâm *</label>
           <select id="pf-plan" className="input" value={form.plan} onChange={(e) => set('plan', e.target.value)}>
-            <option value="1_month">Gói 1 tháng – 1.200.000đ</option>
-            <option value="3_months">Gói 3 tháng – 2.700.000đ (bình quân 900.000đ/tháng)</option>
+            <option value="1_month">6 tháng đầu – 500.000đ/tháng (tháng đầu miễn phí)</option>
+            <option value="3_months">Giai đoạn ổn định – 900.000đ/tháng (từ tháng thứ 7)</option>
           </select>
         </div>
       </div>
@@ -128,8 +128,8 @@ export default function Partner() {
   return (
     <div className="min-h-screen bg-slate-50">
       <SeoMeta
-        title="Nhà thuốc đối tác BriMed Gò Vấp – Đăng ký gói 1 tháng & 3 tháng"
-        description="Đăng ký nhà thuốc đối tác BriMed: standee + mã QR tại quầy, bác sĩ từ xa kê đơn điện tử ký số. Gói 1 tháng 1.200.000đ, gói 3 tháng 2.700.000đ. Đăng ký ngay."
+        title="Nhà thuốc đối tác BriMed Gò Vấp – Tháng đầu miễn phí, 500.000đ/tháng"
+        description="Đăng ký nhà thuốc đối tác BriMed: standee + mã QR tại quầy, bác sĩ từ xa kê đơn điện tử ký số. Tháng đầu miễn phí, 500.000đ/tháng trong 6 tháng đầu, sau đó 900.000đ/tháng. Không hoa hồng tiền thuốc."
       />
       <PublicHeader />
 
@@ -237,33 +237,33 @@ export default function Partner() {
           <div className="max-w-5xl mx-auto px-4">
             <h2 className="text-center font-extrabold text-[22px] text-bluedark">Hai gói thuê bao cho nhà thuốc</h2>
             <p className="text-center text-slate-500 text-[14px] mt-1.5 mb-6">
-              Chọn gói theo tháng hoặc ổn định lâu hơn với giá tốt hơn.
+              Tháng đầu miễn phí — 500.000đ/tháng trong 6 tháng đầu, sau đó 900.000đ/tháng. BriMed không thu hoa hồng tiền thuốc.
             </p>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="card p-5 border-2 border-primary/30">
                 <div className="flex items-baseline justify-between">
-                  <h3 className="font-extrabold text-[17px] text-bluedark">Gói 1 tháng</h3>
-                  <span className="badge bg-lightblue text-bluedark">Linh hoạt</span>
+                  <h3 className="font-extrabold text-[17px] text-bluedark">6 tháng đầu</h3>
+                  <span className="badge bg-lightblue text-bluedark">Tháng đầu miễn phí</span>
                 </div>
-                <div className="mt-2 text-[24px] font-extrabold text-primary">1.200.000đ<span className="text-[13px] text-slate-400 font-semibold">/tháng</span></div>
+                <div className="mt-2 text-[24px] font-extrabold text-primary">500.000đ<span className="text-[13px] text-slate-400 font-semibold">/tháng</span></div>
                 <ul className="mt-3 space-y-1.5 text-[13.5px] text-slate-600">
                   <li className="flex gap-2"><CheckCircle2 size={16} className="text-mint-fg shrink-0 mt-0.5" /> Standee + mã QR đặt tại quầy</li>
                   <li className="flex gap-2"><CheckCircle2 size={16} className="text-mint-fg shrink-0 mt-0.5" /> Bác sĩ từ xa kê đơn điện tử ký số</li>
                   <li className="flex gap-2"><CheckCircle2 size={16} className="text-mint-fg shrink-0 mt-0.5" /> Bán thuốc theo mã đơn, khách chờ ~7 phút</li>
                 </ul>
-                <Link to={SEO.pkg1.slug} className="btn-outline w-full mt-4">Xem chi tiết gói 1 tháng</Link>
+                <Link to={SEO.pkg1.slug} className="btn-outline w-full mt-4">Xem chi tiết phí 6 tháng đầu</Link>
               </div>
               <div className="card p-5 border-2 border-pink/40 relative overflow-hidden">
-                <span className="absolute top-3 right-3 badge bg-pink text-white">Tiết kiệm 25%</span>
-                <h3 className="font-extrabold text-[17px] text-bluedark">Gói 3 tháng</h3>
-                <div className="mt-2 text-[24px] font-extrabold text-pink">2.700.000đ<span className="text-[13px] text-slate-400 font-semibold">/3 tháng</span></div>
-                <div className="text-[12.5px] text-slate-500">Bình quân chỉ 900.000đ/tháng</div>
+                <span className="absolute top-3 right-3 badge bg-pink text-white">Giá ổn định</span>
+                <h3 className="font-extrabold text-[17px] text-bluedark">Từ tháng thứ 7</h3>
+                <div className="mt-2 text-[24px] font-extrabold text-pink">900.000đ<span className="text-[13px] text-slate-400 font-semibold">/tháng</span></div>
+                <div className="text-[12.5px] text-slate-500">Không đổi giá, không hoa hồng tiền thuốc</div>
                 <ul className="mt-3 space-y-1.5 text-[13.5px] text-slate-600">
-                  <li className="flex gap-2"><BadgeCheck size={16} className="text-pink shrink-0 mt-0.5" /> Toàn bộ quyền lợi gói 1 tháng</li>
-                  <li className="flex gap-2"><BadgeCheck size={16} className="text-pink shrink-0 mt-0.5" /> Ước tính lãi gộp thêm ~4.050.000đ/tháng (15 toa/ngày)</li>
+                  <li className="flex gap-2"><BadgeCheck size={16} className="text-pink shrink-0 mt-0.5" /> Toàn bộ quyền lợi 6 tháng đầu</li>
+                  <li className="flex gap-2"><BadgeCheck size={16} className="text-pink shrink-0 mt-0.5" /> Lợi ích được đo bằng số liệu thật, không khoán chỉ tiêu</li>
                   <li className="flex gap-2"><BadgeCheck size={16} className="text-pink shrink-0 mt-0.5" /> Bác sĩ "trực tại quầy" như chuỗi lớn</li>
                 </ul>
-                <Link to={SEO.pkg3.slug} className="btn-pink w-full mt-4">Xem chi tiết gói 3 tháng</Link>
+                <Link to={SEO.pkg3.slug} className="btn-pink w-full mt-4">Xem chi tiết phí ổn định</Link>
               </div>
             </div>
           </div>

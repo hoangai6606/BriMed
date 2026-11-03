@@ -23,8 +23,6 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   cccd TEXT DEFAULT '',
   role TEXT NOT NULL CHECK (role IN ('patient','doctor','pharmacy','admin')),
-  token_balance INTEGER NOT NULL DEFAULT 0,
-  free_prescriptions INTEGER NOT NULL DEFAULT 0,
   doctor_specialty TEXT,
   doctor_license TEXT,
   doctor_online INTEGER NOT NULL DEFAULT 0,
@@ -110,6 +108,8 @@ CREATE TABLE IF NOT EXISTS consultations (
   red_flag INTEGER NOT NULL DEFAULT 0,
   red_flag_reasons TEXT DEFAULT '[]',
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_call','approved','rejected')),
+  payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','paid')),
+  paid_at TEXT,
   call_started_at TEXT,
   call_duration_sec INTEGER DEFAULT 0,
   call_note TEXT DEFAULT '',
@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount_token INTEGER NOT NULL DEFAULT 0,
   amount_vnd INTEGER NOT NULL DEFAULT 0,
   description TEXT DEFAULT '',
+  consultation_id INTEGER,
   prescription_id INTEGER,
   order_id INTEGER,
   created_at TEXT NOT NULL
@@ -225,6 +226,15 @@ export function ensureDb(): Promise<void> {
   if (!ready) {
     ready = (async () => {
       await pool.query(DDL)
+
+      // Migration cho cơ sở dữ liệu tạo từ phiên bản trước (bỏ token, thêm phí khám)
+      await pool.query(`ALTER TABLE users DROP COLUMN IF EXISTS token_balance`)
+      await pool.query(`ALTER TABLE users DROP COLUMN IF EXISTS free_prescriptions`)
+      await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid'`)
+      await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS paid_at TEXT`)
+      await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consultation_id INTEGER`)
+      // Các tư vấn cũ đã đi vào vận hành coi như đã thanh toán
+      await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = COALESCE(paid_at, created_at) WHERE payment_status = 'unpaid' AND status IN ('in_call','approved','rejected')`)
 
       // Cơ sở dữ liệu trống (lần đầu chạy) — nạp toàn bộ dữ liệu mẫu
       // (tài khoản 4 vai trò, nhà thuốc, thuốc, tồn kho, tư vấn, đơn thuốc...)

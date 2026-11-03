@@ -70,6 +70,19 @@ r.put('/health-profile/me', async (req, res) => {
 })
 
 // ---------- Tư vấn / Form 1 ----------
+const CONSULT_FEE_VND = 25000 // Phí khám/lượt — bác sĩ nhận 15.000đ, BriMed giữ 10.000đ (gồm GTGT)
+
+// Thông tin thanh toán VietQR (QR hiển thị trong web; tài khoản thu hộ cập nhật khi kích hoạt payOS)
+function paymentInfo(id: number) {
+  return {
+    consultation_id: id,
+    amount_vnd: CONSULT_FEE_VND,
+    currency: 'VND',
+    method: 'VietQR',
+    content: `BRIMED ${id}`,
+  }
+}
+
 r.post('/consultations', async (req, res) => {
   try {
     const b = req.body || {}
@@ -88,8 +101,8 @@ r.post('/consultations', async (req, res) => {
     }
     const { rows } = await pool.query(
       `INSERT INTO consultations (patient_id, disease_group, symptom, duration_days, fever, fever_days,
-       shortness_of_breath, is_child, pregnancy, drug_allergies, current_medicines, consent_share, red_flag, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,'pending',$13) RETURNING id`,
+       shortness_of_breath, is_child, pregnancy, drug_allergies, current_medicines, consent_share, red_flag, status, payment_status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,'pending','unpaid',$13) RETURNING id`,
       [req.user.id, b.disease_group, b.symptom, b.duration_days || 1, b.fever ? 1 : 0, b.fever_days || 0,
         b.shortness_of_breath ? 1 : 0, b.is_child ? 1 : 0, b.pregnancy ? 1 : 0,
         b.drug_allergies || '', b.current_medicines || '', b.consent_share !== false ? 1 : 0, nowIso()]
@@ -99,12 +112,39 @@ r.post('/consultations', async (req, res) => {
       [b.drug_allergies || '', b.current_medicines || '', b.pregnancy ? 1 : 0, req.user.id]
     )
     const row = (await pool.query('SELECT * FROM consultations WHERE id = $1', [rows[0].id])).rows[0]
-    res.json({ consultation: await attachNames(row) })
+    res.json({ consultation: await attachNames(row), payment: paymentInfo(rows[0].id) })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
   }
 })
+
+// Xác nhận thanh toán phí khám qua VietQR
+r.post('/consultations/:id/pay', async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT * FROM consultations WHERE id = $1 AND patient_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
+    if (c.payment_status === 'paid') {
+      return res.json({ ok: true, consultation: await attachNames(c), message: 'Yêu cầu này đã được thanh toán.' })
+    }
+    await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = $1 WHERE id = $2`, [nowIso(), c.id])
+    await pool.query(
+      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+       VALUES ($1, 'consultation_fee', 0, $2, $3, $4, $5)`,
+      [req.user.id, CONSULT_FEE_VND, `Phí khám từ xa (${await consultCode(c.id)})`, c.id, nowIso()]
+    )
+    const updated = (await pool.query('SELECT * FROM consultations WHERE id = $1', [c.id])).rows[0]
+    res.json({ ok: true, consultation: await attachNames(updated), message: 'Đã xác nhận thanh toán — bác sĩ sẽ tiếp nhận yêu cầu của bạn.' })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// Mã hiển thị cho nội dung chuyển khoản (dùng mã tư vấn, chưa có đơn thuốc)
+async function consultCode(id: number): Promise<string> {
+  return `CV-${String(id).padStart(5, '0')}`
+}
 
 r.get('/consultations/mine', async (req, res) => {
   try {
@@ -134,10 +174,9 @@ r.get('/prescriptions/mine', async (req, res) => {
   }
 })
 
-// Mua tại quầy (3 token) hoặc lấy mã đi nơi khác (4 token)
+// Gửi đơn đến quầy nhà thuốc chọn sẵn (tiền thuốc trả trực tiếp tại quầy — BriMed không thu hoa hồng)
 r.post('/prescriptions/:id/purchase', async (req, res) => {
   try {
-    const mode = req.body?.mode
     const rx = (await pool.query('SELECT * FROM prescriptions WHERE id = $1 AND patient_id = $2', [req.params.id, req.user.id])).rows[0]
     if (!rx) return res.status(404).json({ error: 'Không tìm thấy đơn thuốc.' })
     if (rx.status === 'rejected') return res.status(400).json({ error: 'Đơn đã bị từ chối, không thể sử dụng.' })
@@ -145,40 +184,10 @@ r.post('/prescriptions/:id/purchase', async (req, res) => {
     const existing = (await pool.query('SELECT * FROM orders WHERE prescription_id = $1', [rx.id])).rows[0]
     if (existing) return res.status(409).json({ error: 'Đơn này đã có đơn hàng đang xử lý.', order: existing })
 
-    const user = (await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0]
-    const cost = mode === 'elsewhere' ? 4 : 3
-    const useFree = user.free_prescriptions > 0
-    if (!useFree && user.token_balance < cost) {
-      return res.status(402).json({ error: `Không đủ token (cần ${cost}, đang có ${user.token_balance}). Vui lòng nạp thêm.` })
-    }
-    let pharmacy: any = null
-    if (mode !== 'elsewhere') {
-      pharmacy = (await pool.query('SELECT * FROM pharmacies WHERE id = $1', [Number(req.body?.pharmacy_id)])).rows[0]
-      if (!pharmacy) return res.status(400).json({ error: 'Vui lòng chọn nhà thuốc đối tác để mua tại quầy.' })
-    }
-    const t = nowIso()
-    if (useFree) {
-      await pool.query('UPDATE users SET free_prescriptions = free_prescriptions - 1 WHERE id = $1', [user.id])
-      await pool.query(
-        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, prescription_id, created_at)
-         VALUES ($1, 'prescription_free', 0, 0, $2, $3, $4)`,
-        [user.id, `Dùng toa miễn phí (${rx.national_code})`, rx.id, t]
-      )
-    } else {
-      await pool.query('UPDATE users SET token_balance = token_balance - $1 WHERE id = $2', [cost, user.id])
-      await pool.query(
-        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, prescription_id, created_at)
-         VALUES ($1, 'token_deduct', $2, $3, $4, $5, $6)`,
-        [user.id, -cost, cost * 5000, `${mode === 'elsewhere' ? 'Lấy mã đơn mang đi nơi khác' : 'Mua tại quầy'} (${rx.national_code})`, rx.id, t]
-      )
-    }
+    const pharmacy = (await pool.query('SELECT * FROM pharmacies WHERE id = $1', [Number(req.body?.pharmacy_id)])).rows[0]
+    if (!pharmacy) return res.status(400).json({ error: 'Vui lòng chọn nhà thuốc đối tác để mua tại quầy.' })
 
-    if (mode === 'elsewhere') {
-      return res.json({
-        mode, used_free: useFree, tokens_charged: 0, national_code: rx.national_code,
-        message: 'Đã trừ 4 token. Bạn mang mã đơn đến bất kỳ nhà thuốc hợp lệ nào để mua thuốc.',
-      })
-    }
+    const t = nowIso()
     const rawItems = JSON.parse(rx.items || '[]')
     const items = []
     for (const it of rawItems) {
@@ -188,13 +197,13 @@ r.post('/prescriptions/:id/purchase', async (req, res) => {
     }
     const ins = await pool.query(
       `INSERT INTO orders (prescription_id, patient_id, pharmacy_id, items, receive_method,
-       tokens_charged, is_free, status, created_at, updated_at) VALUES ($1,$2,$3,$4,'pickup',$5,$6,'confirmed',$7,$8) RETURNING id`,
-      [rx.id, user.id, pharmacy.id, JSON.stringify(items), useFree ? 0 : cost, useFree ? 1 : 0, t, t]
+       tokens_charged, is_free, status, created_at, updated_at) VALUES ($1,$2,$3,$4,'pickup',0,0,'confirmed',$5,$6) RETURNING id`,
+      [rx.id, req.user.id, pharmacy.id, JSON.stringify(items), t, t]
     )
     const order = (await pool.query('SELECT * FROM orders WHERE id = $1', [ins.rows[0].id])).rows[0]
     res.json({
-      mode, used_free: useFree, tokens_charged: useFree ? 0 : cost, order,
-      message: `Đã tạo đơn hàng tại ${pharmacy.name}. Vui lòng đến quầy và cung cấp mã đơn ${rx.national_code}.`,
+      order,
+      message: `Đã gửi đơn đến ${pharmacy.name}. Đến quầy, bạn cung cấp mã đơn ${rx.national_code} và trả tiền thuốc theo báo giá của quầy.`,
     })
   } catch (e) {
     console.error(e)

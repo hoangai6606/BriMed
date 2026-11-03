@@ -31,10 +31,20 @@ async function rxWithNames(p: any) {
   }
 }
 
+// Ghi nhận thù lao bác sĩ 15.000đ cho một lượt khám đã thanh toán (kể cả trường hợp chuyển khám trực tiếp)
+const DOCTOR_FEE_VND = 15000
+async function payDoctorFee(doctorId: number, consultationId: number, nationalCode: string) {
+  await pool.query(
+    `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+     VALUES ($1, 'doctor_fee', 0, $2, $3, $4, $5)`,
+    [doctorId, DOCTOR_FEE_VND, `Thù lao bác sĩ lượt khám ${nationalCode}`, consultationId, nowIso()]
+  )
+}
+
 // ---------- Hàng đợi ----------
 r.get('/queue', async (req, res) => {
   try {
-    const pending = (await pool.query(`SELECT * FROM consultations WHERE status = 'pending' ORDER BY created_at ASC`)).rows
+    const pending = (await pool.query(`SELECT * FROM consultations WHERE status = 'pending' AND payment_status = 'paid' ORDER BY created_at ASC`)).rows
     const mine = (await pool.query(
       `SELECT * FROM consultations WHERE doctor_id = $1 AND status IN ('in_call','approved','rejected') ORDER BY created_at DESC LIMIT 20`,
       [req.user.id]
@@ -90,6 +100,7 @@ r.post('/consultations/:id/decision', async (req, res) => {
     const reason = String(req.body?.reason || '').trim()
     if (!reason) return res.status(400).json({ error: 'Vui lòng ghi rõ lý do từ chối / chuyển khám.' })
     const t = nowIso()
+    const rejectCode = await nextCode()
     await pool.query(
       `UPDATE consultations SET status='rejected', doctor_id=$1, reject_reason=$2, doctor_note=$3, decided_at=$4 WHERE id=$5`,
       [req.user.id, reason, req.body?.note || '', t, c.id]
@@ -97,8 +108,9 @@ r.post('/consultations/:id/decision', async (req, res) => {
     await pool.query(
       `INSERT INTO prescriptions (national_code, consultation_id, patient_id, doctor_id, items, status, reject_reason, created_at)
        VALUES ($1, $2, $3, $4, '[]', 'rejected', $5, $6)`,
-      [await nextCode(), c.id, c.patient_id, req.user.id, reason, t]
+      [rejectCode, c.id, c.patient_id, req.user.id, reason, t]
     )
+    await payDoctorFee(req.user.id, c.id, rejectCode)
     const updated = (await pool.query('SELECT * FROM consultations WHERE id = $1', [c.id])).rows[0]
     res.json({ ok: true, consultation: await attachNames(updated) })
   } catch (e) {
@@ -119,7 +131,7 @@ r.get('/patients/:id/record', async (req, res) => {
     const history = (await pool.query('SELECT * FROM consultations WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 10', [patient.id])).rows
     const rxs = (await pool.query(`SELECT * FROM prescriptions WHERE patient_id = $1 AND status != 'rejected' ORDER BY created_at DESC LIMIT 10`, [patient.id])).rows
     res.json({
-      patient: { id: patient.id, full_name: patient.full_name, phone: patient.phone, token_balance: patient.token_balance },
+      patient: { id: patient.id, full_name: patient.full_name, phone: patient.phone },
       profile: hp,
       consultations: await Promise.all(history.map(attachNames)),
       prescriptions: await Promise.all(rxs.map(rxWithNames)),
@@ -216,6 +228,7 @@ r.post('/prescriptions', async (req, res) => {
         `UPDATE consultations SET status='approved', doctor_id=$1, doctor_note=$2, decided_at=$3 WHERE id=$4`,
         [req.user.id, b.note || '', t, consultation.id]
       )
+      await payDoctorFee(req.user.id, consultation.id, code)
     }
     const rx = (await pool.query('SELECT * FROM prescriptions WHERE id = $1', [ins.rows[0].id])).rows[0]
     res.json({ prescription: await rxWithNames(rx) })

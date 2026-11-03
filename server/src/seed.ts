@@ -102,10 +102,10 @@ export async function seedDb(): Promise<void> {
   // ---------------- Tài khoản ----------------
   const pw = sha256('123456')
   const users: any[] = [
-    { full_name: 'Nguyễn Thị Lan', phone: '0901234567', password_hash: pw, cccd: '031202001234', role: 'patient', token_balance: 20, free_prescriptions: 2 },
-    { full_name: 'Trần Văn Hùng', phone: '0902222333', password_hash: pw, cccd: '045203004567', role: 'patient', token_balance: 12, free_prescriptions: 0 },
-    { full_name: 'Lê Minh Tuấn', phone: '0903333444', password_hash: pw, cccd: '079204005678', role: 'patient', token_balance: 4, free_prescriptions: 0 },
-    { full_name: 'Phạm Thị Hồng', phone: '0904444555', password_hash: pw, cccd: '028197002345', role: 'patient', token_balance: 35, free_prescriptions: 0 },
+    { full_name: 'Nguyễn Thị Lan', phone: '0901234567', password_hash: pw, cccd: '031202001234', role: 'patient' },
+    { full_name: 'Trần Văn Hùng', phone: '0902222333', password_hash: pw, cccd: '045203004567', role: 'patient' },
+    { full_name: 'Lê Minh Tuấn', phone: '0903333444', password_hash: pw, cccd: '079204005678', role: 'patient' },
+    { full_name: 'Phạm Thị Hồng', phone: '0904444555', password_hash: pw, cccd: '028197002345', role: 'patient' },
     { full_name: 'BS. Nguyễn Văn Minh', phone: '0908888881', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Nội tổng quát', doctor_license: 'BYT-BS-2011-00567', doctor_online: 1 },
     { full_name: 'BS. Trần Thị Thu Hà', phone: '0908888882', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Tai Mũi Họng', doctor_license: 'BYT-BS-2014-00231', doctor_online: 1 },
     { full_name: 'BS. Lê Hoàng Sơn', phone: '0908888883', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Da Liễu', doctor_license: 'BYT-BS-2016-00893', doctor_online: 0 },
@@ -119,10 +119,10 @@ export async function seedDb(): Promise<void> {
   const userIds: number[] = []
   for (const u of users) {
     const r = await pool.query(
-      `INSERT INTO users (full_name, phone, password_hash, cccd, role, token_balance, free_prescriptions,
+      `INSERT INTO users (full_name, phone, password_hash, cccd, role,
        doctor_specialty, doctor_license, doctor_online, pharmacy_id, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-      [u.full_name, u.phone, u.password_hash, u.cccd ?? '', u.role, u.token_balance ?? 0, u.free_prescriptions ?? 0,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [u.full_name, u.phone, u.password_hash, u.cccd ?? '', u.role,
         u.doctor_specialty ?? null, u.doctor_license ?? null, u.doctor_online ?? 0, u.pharmacy_id ?? null, daysAgo(90)]
     )
     userIds.push(r.rows[0].id)
@@ -150,11 +150,11 @@ export async function seedDb(): Promise<void> {
     const r = await pool.query(
       `INSERT INTO consultations (patient_id, doctor_id, disease_group, symptom, duration_days, fever, fever_days,
        shortness_of_breath, is_child, pregnancy, drug_allergies, current_medicines, consent_share,
-       red_flag, red_flag_reasons, status, call_started_at, call_duration_sec, call_note, doctor_note, reject_reason, created_at, decided_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id`,
+       red_flag, red_flag_reasons, status, payment_status, paid_at, call_started_at, call_duration_sec, call_note, doctor_note, reject_reason, created_at, decided_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'paid',$17,$18,$19,$20,$21,$22,$23,$24) RETURNING id`,
       [c.patient_id, c.doctor_id, c.disease_group, c.symptom, c.duration_days, c.fever, c.fever_days,
         c.shortness_of_breath, c.is_child, c.pregnancy, c.drug_allergies, c.current_medicines, c.consent_share,
-        c.red_flag, c.red_flag_reasons, c.status, c.call_started_at, c.call_duration_sec, c.call_note, c.doctor_note, c.reject_reason, c.created_at, c.decided_at]
+        c.red_flag, c.red_flag_reasons, c.status, c.created_at, c.call_started_at, c.call_duration_sec, c.call_note, c.doctor_note, c.reject_reason, c.created_at, c.decided_at]
     )
     return r.rows[0].id
   }
@@ -279,23 +279,44 @@ export async function seedDb(): Promise<void> {
   )
 
   // ---------------- Giao dịch ----------------
+  // Mô hình mới: phí khám 25.000đ/lượt (bệnh nhân trả qua VietQR), thù lao bác sĩ 15.000đ/lượt đã xử lý,
+  // doanh thu thuê bao nhà thuốc B2B. Không hoa hồng tiền thuốc, không token.
+  const CONSULT_FEE = 25000
+  const DOCTOR_FEE = 15000
+  const paidConsults = [
+    { id: c1, patient_id: lanId, doctor_id: bsHaId, code: 'CV-00001', at: daysAgo(3) },
+    { id: c2, patient_id: hungId, doctor_id: userIds[4], code: 'CV-00002', at: daysAgo(2) },
+    { id: c3, patient_id: tuanId, doctor_id: bsAnhId, code: 'CV-00003', at: daysAgo(1) },
+  ]
+  for (const pc of paidConsults) {
+    await pool.query(
+      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+       VALUES ($1, 'consultation_fee', 0, $2, $3, $4, $5)`,
+      [pc.patient_id, CONSULT_FEE, `Phí khám từ xa (${pc.code})`, pc.id, pc.at]
+    )
+  }
+  const decidedConsults = [
+    { doctor_id: bsHaId, consult_id: c1, code: 'CV-00001', at: daysAgo(3) },
+    { doctor_id: userIds[4], consult_id: c2, code: 'CV-00002', at: daysAgo(2) },
+    { doctor_id: bsAnhId, consult_id: c3, code: 'CV-00003', at: daysAgo(1) },
+  ]
+  for (const dc of decidedConsults) {
+    await pool.query(
+      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+       VALUES ($1, 'doctor_fee', 0, $2, $3, $4, $5)`,
+      [dc.doctor_id, DOCTOR_FEE, `Thù lao bác sĩ lượt khám ${dc.code}`, dc.consult_id, dc.at]
+    )
+  }
   const txs = [
-    { user_id: lanId, type: 'topup', amount_token: 20, amount_vnd: 0, description: 'Tặng 20 token chào mừng tài khoản mới', prescription_id: null, order_id: null, created_at: daysAgo(30) },
-    { user_id: lanId, type: 'prescription_free', amount_token: 0, amount_vnd: 0, description: 'Dùng toa miễn phí thứ 1/2 (VN-Rx-2026-00001)', prescription_id: rx1, order_id: 1, created_at: daysAgo(3) },
-    { user_id: hungId, type: 'topup', amount_token: 15, amount_vnd: 0, description: 'Tặng token chào mừng tài khoản mới', prescription_id: null, order_id: null, created_at: daysAgo(60) },
-    { user_id: hungId, type: 'token_deduct', amount_token: -3, amount_vnd: 15000, description: 'Toa VN-Rx-2026-00002 mua tại quầy Nhà thuốc An Khang', prescription_id: rx2, order_id: 2, created_at: daysAgo(2) },
-    { user_id: hungId, type: 'prescription_free', amount_token: 0, amount_vnd: 0, description: 'Đã dùng hết 2 toa miễn phí', prescription_id: null, order_id: null, created_at: daysAgo(45) },
-    { user_id: tuanId, type: 'topup', amount_token: 4, amount_vnd: 0, description: 'Mua thêm 4 token tại quầy', prescription_id: null, order_id: null, created_at: daysAgo(20) },
-    { user_id: mcId, type: 'b2b_subscription', amount_token: 0, amount_vnd: 2700000, description: 'Gói 3 tháng – Nhà thuốc Minh Châu', prescription_id: null, order_id: null, created_at: daysAgo(45) },
-    { user_id: null, type: 'b2b_subscription', amount_token: 0, amount_vnd: 2700000, description: 'Gói 3 tháng – Nhà thuốc An Khang', prescription_id: null, order_id: null, created_at: daysAgo(30) },
-    { user_id: null, type: 'b2b_subscription', amount_token: 0, amount_vnd: 1200000, description: 'Gói 1 tháng – Nhà thuốc Thanh Đạt', prescription_id: null, order_id: null, created_at: daysAgo(12) },
-    { user_id: null, type: 'doctor_fee', amount_token: 0, amount_vnd: 6000, description: 'Thù lao bác sĩ toa VN-Rx-2026-00001', prescription_id: rx1, order_id: null, created_at: daysAgo(3) },
+    { user_id: mcId, type: 'b2b_subscription', amount_token: 0, amount_vnd: 1500000, description: 'Phí nhà thuốc 6 tháng đầu (3 tháng đã dùng) – Minh Châu', consultation_id: null, created_at: daysAgo(45) },
+    { user_id: null, type: 'b2b_subscription', amount_token: 0, amount_vnd: 1000000, description: 'Phí nhà thuốc 6 tháng đầu (2 tháng đã dùng) – An Khang', consultation_id: null, created_at: daysAgo(30) },
+    { user_id: null, type: 'b2b_subscription', amount_token: 0, amount_vnd: 500000, description: 'Phí nhà thuốc 6 tháng đầu (1 tháng đã dùng) – Thanh Đạt', consultation_id: null, created_at: daysAgo(12) },
   ]
   for (const t of txs) {
     await pool.query(
-      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, prescription_id, order_id, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [t.user_id, t.type, t.amount_token, t.amount_vnd, t.description, t.prescription_id, t.order_id, t.created_at]
+      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [t.user_id, t.type, t.amount_token, t.amount_vnd, t.description, t.consultation_id, t.created_at]
     )
   }
 

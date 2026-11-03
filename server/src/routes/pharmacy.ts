@@ -227,7 +227,7 @@ r.post('/orders/:id/advance', wrap(async (req: any, res: any) => {
   if (o.status === 'preparing') {
     await pool.query(`UPDATE orders SET status='ready_or_shipping', updated_at=$1 WHERE id=$2`, [t, o.id])
   } else if (o.status === 'ready_or_shipping') {
-    // Hoàn tất: trừ tồn kho, đánh dấu đơn đã cấp phát, ghi giao dịch
+    // Hoàn tất: trừ tồn kho, đánh dấu đơn đã cấp phát
     const items = JSON.parse(o.items || '[]')
     for (const it of items) {
       await pool.query('UPDATE inventory SET stock = GREATEST(0, stock - $1) WHERE pharmacy_id = $2 AND medicine_id = $3',
@@ -235,19 +235,6 @@ r.post('/orders/:id/advance', wrap(async (req: any, res: any) => {
     }
     await pool.query(`UPDATE prescriptions SET status='dispensed', dispensed_at=$1 WHERE id=$2`, [t, o.prescription_id])
     await pool.query(`UPDATE orders SET status='completed', updated_at=$1, completed_at=$2 WHERE id=$3`, [t, t, o.id])
-    const rx = (await pool.query('SELECT * FROM prescriptions WHERE id = $1', [o.prescription_id])).rows[0]
-    await pool.query(
-      `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, prescription_id, order_id, created_at)
-       VALUES ($1, 'doctor_fee', 0, 6000, $2, $3, $4, $5)`,
-      [rx?.doctor_id || null, `Thù lao bác sĩ toa ${rx?.national_code}`, o.prescription_id, o.id, t]
-    )
-    if (o.tokens_charged > 0) {
-      await pool.query(
-        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, prescription_id, order_id, created_at)
-         VALUES (NULL, 'token_revenue', $1, $2, $3, $4, $5, $6)`,
-        [o.tokens_charged, o.tokens_charged * 5000, `Doanh thu token đơn ${rx?.national_code}`, o.prescription_id, o.id, t]
-      )
-    }
   } else {
     return res.status(400).json({ error: 'Đơn hàng đã hoàn tất.' })
   }

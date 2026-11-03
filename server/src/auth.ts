@@ -59,8 +59,6 @@ export function publicUser(u: any) {
     phone: u.phone,
     cccd: u.cccd,
     role: u.role,
-    token_balance: u.token_balance,
-    free_prescriptions: u.free_prescriptions,
     doctor_specialty: u.doctor_specialty,
     doctor_license: u.doctor_license,
     doctor_online: !!u.doctor_online,

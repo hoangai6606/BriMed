@@ -54,15 +54,15 @@ export const STEPS_FLOW = [
 
 export const SEO = {
   pkg1: {
-    title: 'Gói 1 Tháng BriMed Cho Nhà Thuốc Gò Vấp | 1.200.000đ',
-    h1: 'Gói 1 tháng BriMed: toa thuốc nhanh tại quầy cho nhà thuốc Gò Vấp',
-    meta: 'Toa thuốc điện tử cho nhà thuốc Gò Vấp: khách cảm cúm, viêm họng quét QR, bác sĩ kê đơn trong vài phút. Gói 1 tháng 1.200.000đ.',
+    title: 'Nhà Thuốc Đối Tác BriMed Gò Vấp | Tháng Đầu Miễn Phí, 500.000đ/tháng',
+    h1: 'Nhà thuốc Gò Vấp dùng BriMed: tháng đầu miễn phí, sau đó 500.000đ/tháng',
+    meta: 'Khách quét QR tại quầy, bác sĩ từ xa ký đơn điện tử hợp lệ. BriMed không thu hoa hồng tiền thuốc. Tháng đầu miễn phí, 500.000đ/tháng trong 6 tháng đầu. Đăng ký ngay.',
     slug: '/goi-1-thang-brimed-nha-thuoc',
   },
   pkg3: {
-    title: 'Gói 3 Tháng BriMed Cho Nhà Thuốc Gò Vấp | 2.700.000đ',
-    h1: 'Gói 3 tháng BriMed: bác sĩ trực tại quầy, tiết kiệm hơn cho nhà thuốc Gò Vấp',
-    meta: 'Bác sĩ trực cho nhà thuốc Gò Vấp qua QR tại quầy, toa thuốc điện tử hợp lệ. Gói 3 tháng 2.700.000đ, bình quân 900.000đ/tháng. Đăng ký ngay.',
+    title: 'BriMed Giai Đoạn Ổn Định Cho Nhà Thuốc | 900.000đ/tháng',
+    h1: 'BriMed giai đoạn ổn định: 900.000đ/tháng cho nhà thuốc Gò Vấp',
+    meta: 'Sau 6 tháng đầu, phí BriMed 900.000đ/tháng — tiếp nhận đơn, đối soát và mạng lưới bác sĩ ký đơn điện tử. Không hoa hồng tiền thuốc. Đăng ký ngay.',
     slug: '/goi-3-thang-brimed-nha-thuoc',
   },
 }
@@ -82,7 +82,7 @@ export const CUSTOMER_BENEFITS = [
     icon: PiggyBank,
     color: 'bg-lightpink text-pink-dark',
     title: 'Tiết kiệm tiền',
-    desc: 'Hai toa đầu miễn phí. Từ toa thứ 3 chỉ khoảng 15.000đ — rẻ hơn nhiều lần so với đi khám.',
+    desc: 'Chỉ 25.000đ/lượt khám, thanh toán VietQR ngay trong web — rẻ hơn nhiều lần so với đi khám.'
   },
   {
     icon: Timer,
@@ -105,9 +105,9 @@ export const CUSTOMER_BENEFITS = [
 ]
 
 export const CUSTOMER_PRICING = [
-  { label: '2 toa đầu tiên', note: 'Tặng ngay khi tạo tài khoản BriMed', price: 'Miễn phí', highlight: true },
-  { label: 'Mua thuốc tại quầy đối tác', note: 'Phí tư vấn ~15.000đ (3 token), trả cùng lúc mua thuốc', price: '15.000đ/toa', highlight: false },
-  { label: 'Mang đơn sang nhà thuốc khác', note: 'Phí ~20.000đ (4 token) — bạn được tự chọn nơi mua thuốc', price: '20.000đ/toa', highlight: false },
+  { label: 'Lượt khám từ xa', note: 'Bác sĩ thật ký đơn điện tử — thanh toán qua VietQR trong web', price: '25.000đ/lượt', highlight: true },
+  { label: 'Thuốc tại nhà thuốc', note: 'BriMed không thu hoa hồng — bạn trả giá niêm yết tại quầy', price: 'Giá quầy', highlight: false },
+  { label: 'Nhà thuốc đối tác', note: 'Tháng đầu miễn phí → 500.000đ/tháng (6 tháng đầu) → 900.000đ/tháng', price: 'Từ 500.000đ/tháng', highlight: false },
 ]
 
 export const ELIGIBLE = [
@@ -131,7 +131,7 @@ export const NOT_ELIGIBLE = [
 export const CUSTOMER_FAQ = [
   {
     q: 'Dùng BriMed có mất phí không?',
-    a: 'Bạn được tặng 2 toa miễn phí đầu tiên. Từ toa thứ 3, phí khoảng 15.000đ mỗi toa khi mua thuốc tại quầy đối tác, trả cùng lúc mua thuốc — không phát sinh phí nào khác.',
+    a: 'Phí khám là 25.000đ mỗi lượt, thanh toán qua VietQR ngay trong web trước khi bác sĩ tiếp nhận. Tiền thuốc bạn trả trực tiếp tại quầy theo giá niêm yết — BriMed không thu hoa hồng tiền thuốc.',
   },
   {
     q: 'Tôi có phải cài app không?',
@@ -225,7 +225,7 @@ export const CUSTOMER_TESTIMONIALS = [
   {
     name: 'Chị Thanh Mai',
     meta: '35 tuổi · Tân Bình',
-    quote: 'Trào ngược tái phát mà toa cũ hết hạn. Dùng BriMed có đơn ngay tại quầy, rẻ hơn đi khám cả chục lần. 2 toa đầu còn miễn phí.',
+    quote: 'Trào ngược tái phát mà toa cũ hết hạn. Dùng BriMed có đơn ngay tại quầy, chỉ 25.000đ phí khám — rẻ hơn đi khám cả chục lần.',
   },
 ]
 
@@ -260,42 +260,8 @@ export const PARTNER_URGENCY = {
 // Form action mock (trang chủ)
 export const CUSTOMER_LEAD_NOTE = {
   title: 'Nhận danh sách nhà thuốc có BriMed gần bạn',
-  desc: 'Để lại số điện thoại — BriMed gửi qua Zalo/SMS danh sách nhà thuốc gần nhất có mã QR và hướng dẫn nhận 2 toa miễn phí.',
+  desc: 'Để lại số điện thoại — BriMed gửi qua Zalo/SMS danh sách nhà thuốc gần nhất có mã QR và hướng dẫn sử dụng từ A đến Z.',
 }
-
-// Checkout mockup nạp token (1 token ≈ 5.000đ, 1 toa tại quầy ≈ 3 token)
-export const TOKEN_PACKAGES = [
-  {
-    id: 'starter',
-    name: 'Gói Khởi Đầu',
-    tokens: 10,
-    price: 50000,
-    per: '~3 toa',
-    note: 'Dùng sau 2 toa miễn phí',
-    popular: false,
-    save: '',
-  },
-  {
-    id: 'popular',
-    name: 'Gói Phổ Thông',
-    tokens: 20,
-    price: 100000,
-    per: '~6 toa',
-    note: 'Phù hợp gia đình 2–3 người',
-    popular: true,
-    save: '',
-  },
-  {
-    id: 'saver',
-    name: 'Gói Tiết Kiệm',
-    tokens: 40,
-    price: 180000,
-    per: '~13 toa',
-    note: 'Cho người hay tái phát cảm cúm',
-    popular: false,
-    save: 'Tiết kiệm 20.000đ',
-  },
-]
 
 export const PAYMENT_METHODS = ['Chuyển khoản ngân hàng', 'Ví điện tử (Momo/ZaloPay)', 'Tiền mặt tại nhà thuốc']
 
@@ -303,7 +269,7 @@ export const PAYMENT_METHODS = ['Chuyển khoản ngân hàng', 'Ví điện t�
 export const PARTNER_FAQ = [
   {
     q: 'Ngoài phí thuê bao còn phát sinh chi phí nào không?',
-    a: 'Không. Phí thuê bao đã bao gồm standee, mã QR, mạng lưới bác sĩ và hệ thống đơn điện tử. Khách của tiệm trả phí tư vấn token (~15.000đ/toa) — nhà thuốc không thu hộ, không tất toán thêm.',
+    a: 'Không. Phí thuê bao đã bao gồm standee, mã QR, mạng lưới bác sĩ và hệ thống đơn điện tử. Khách của tiệm tự trả phí khám 25.000đ/lượt qua VietQR trong web — nhà thuốc không thu hộ, không tất toán thêm. BriMed không thu hoa hồng tiền thuốc.',
   },
   {
     q: 'Sau khi đăng ký, bao lâu thì lắp đặt xong?',
@@ -315,7 +281,7 @@ export const PARTNER_FAQ = [
   },
   {
     q: 'Khách của tiệm trả tiền thế nào? Tôi có phải thu tiền giúp không?',
-    a: 'Khách tự trả token ngay trên BriMed khi bấm "Mua tại quầy" — nhà thuốc không thu hay tất toán hộ phí tư vấn. Bạn chỉ bán thuốc theo mã đơn và thu tiền thuốc như bình thường.',
+    a: 'Khách tự trả phí khám 25.000đ/lượt qua VietQR ngay trên BriMed — nhà thuốc không thu hộ, không tất toán thêm. Bạn chỉ bán thuốc theo mã đơn và thu tiền thuốc như bình thường.',
   },
   {
     q: 'Nếu thuốc trong đơn hết hàng hoặc bác sĩ từ chối kê đơn thì sao?',

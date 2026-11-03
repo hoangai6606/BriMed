@@ -114,10 +114,7 @@ export default function AppShell() {
             <div className="flex items-center gap-2">
               {user.role === 'patient' && (
                 <>
-                  <span className="badge bg-lightpink text-pink-dark">
-                    <BellRing size={13} /> {user.free_prescriptions > 0 ? `${user.free_prescriptions} toa miễn phí` : 'Hết toa miễn phí'}
-                  </span>
-                  <span className="badge bg-lightblue text-bluedark font-bold">🪙 {user.token_balance} token</span>
+                  <span className="badge bg-lightblue text-bluedark font-bold">Phí khám 25.000đ/lượt · VietQR</span>
                 </>
               )}
               {user.role === 'doctor' && (

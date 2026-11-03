@@ -46,8 +46,8 @@ export function PublicFooter() {
         <div>
           <h3 className="mb-2.5 font-bold">Dành cho nhà thuốc</h3>
           <ul className="space-y-1.5 text-white/70">
-            <li><Link className="hover:text-white" to={SEO.pkg1.slug}>Gói 1 tháng – 1.200.000đ</Link></li>
-            <li><Link className="hover:text-white" to={SEO.pkg3.slug}>Gói 3 tháng – 2.700.000đ</Link></li>
+            <li><Link className="hover:text-white" to={SEO.pkg1.slug}>Nhà thuốc: tháng đầu miễn phí, 500.000đ/tháng</Link></li>
+            <li><Link className="hover:text-white" to={SEO.pkg3.slug}>Phí ổn định: 900.000đ/tháng</Link></li>
             <li><Link className="hover:text-white" to="/nha-thuoc-doi-tac">Đăng ký nhà thuốc đối tác</Link></li>
             <li>Hotline: 1900 2026</li>
           </ul>
@@ -105,7 +105,7 @@ export default function Home() {
     <>
       <SeoMeta
         title="BriMed – Khám bác sĩ online & mua thuốc an toàn, minh bạch"
-        description="BriMed: kết nối bác sĩ thật ngay tại quầy thuốc — gọi ngắn 1-2 phút, đơn điện tử ký số, nhận thuốc sau ~10 phút. 2 toa đầu miễn phí, không cần cài app."
+        description="BriMed: kết nối bác sĩ thật ngay tại quầy thuốc — phí khám 25.000đ/lượt thanh toán VietQR trong web, đơn điện tử ký số, nhận thuốc sau ~10 phút. Không cần cài app."
       />
       <Landing
         submitLead={async (form) => {

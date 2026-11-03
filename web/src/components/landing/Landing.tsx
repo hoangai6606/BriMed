@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { TokenCheckoutMock } from '../domain/TokenCheckoutMock'
 import { CUSTOMER_FAQ, ELIGIBLE, CUSTOMER_LEAD_NOTE } from '../../data/constants'
 import './landing.css'
 
@@ -24,7 +23,7 @@ function Icon({ name }: { name: string }) {
 }
 
 const benefits = [
-  { icon: 'wallet', title: 'Tiết kiệm chi phí', text: 'Miễn phí 2 toa đầu tiên, minh bạch chi phí từ lần thứ 3.' },
+  { icon: 'wallet', title: 'Tiết kiệm chi phí', text: 'Chỉ 25.000đ/lượt khám, thanh toán VietQR ngay trong web — minh bạch từng đồng.' },
   { icon: 'clock', title: 'Kết nối nhanh chóng', text: 'Gặp bác sĩ trực tuyến ngay tại nhà thuốc, không cần chờ đợi lâu.' },
   { icon: 'shield', title: 'Bác sĩ thật, an tâm thật', text: 'Đội ngũ bác sĩ có chuyên môn và thông tin hành nghề rõ ràng.' },
   { icon: 'phone', title: 'Dễ dàng sử dụng', text: 'Chỉ cần quét mã QR bằng điện thoại, không cần tải ứng dụng.' },
@@ -142,10 +141,10 @@ function HeroCarousel() {
             <p>Truy cập hồ sơ sức khỏe, phiên tư vấn và toa thuốc điện tử của bạn.</p>
             <div className="slide-perks">
               <span><Icon name="check" /> Hồ sơ bảo mật 2 lớp</span>
-              <span><Icon name="check" /> Tặng 20 token &amp; 2 toa miễn phí cho tài khoản mới</span>
+              <span><Icon name="check" /> Phí khám minh bạch 25.000đ/lượt — thanh toán VietQR trong web</span>
             </div>
             <Link className="button neon-button full-button" to="/auth">Đăng nhập ngay <Icon name="arrow" /></Link>
-            <Link className="text-link slide-alt-link" to="/auth">Chưa có tài khoản? Đăng ký miễn phí <Icon name="arrow" /></Link>
+            <Link className="text-link slide-alt-link" to="/auth">Chưa có tài khoản? Đăng ký ngay <Icon name="arrow" /></Link>
           </div>
         </article>
 
@@ -238,6 +237,57 @@ function LeadForm({ submitLead }: { submitLead: (form: { full_name: string; phon
         {err && <p className="lead-err">{err}</p>}
         <p className="lead-note">Thông tin chỉ dùng để liên hệ hướng dẫn sử dụng — không quảng cáo spam.</p>
       </form>
+    </div>
+  )
+}
+
+
+// Khối QR thanh toán VietQR trên landing — QR mẫu, thay bằng QR thật khi kích hoạt cổng thanh toán
+function QrShowcase() {
+  const [copied, setCopied] = useState(false)
+  const cells = useMemo(() => {
+    let s = 7919
+    const rand = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296 }
+    const n = 21
+    const grid: boolean[][] = Array.from({ length: n }, () => Array.from({ length: n }, () => rand() > 0.52))
+    const finder = (r0: number, c0: number) => {
+      for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+        const edge = r === 0 || r === 6 || c === 0 || c === 6
+        const core = r >= 2 && r <= 4 && c >= 2 && c <= 4
+        grid[r0 + r][c0 + c] = edge || core
+      }
+    }
+    finder(0, 0); finder(0, 14); finder(14, 0)
+    return grid
+  }, [])
+  const n = 21, size = 5
+
+  return (
+    <div className="qr-showcase">
+      <div className="qr-showcase-qr">
+        <svg viewBox={`0 0 ${n * size} ${n * size}`} role="img" aria-label="Mã QR thanh toán phí khám qua VietQR">
+          <rect width={n * size} height={n * size} fill="white" />
+          {cells.map((row, r) => row.map((on, c) => on
+            ? <rect key={`${r}-${c}`} x={c * size} y={r * size} width={size} height={size} fill="#10244b" />
+            : null))}
+        </svg>
+      </div>
+      <div className="qr-showcase-copy">
+        <span className="kicker">Thanh toán trong 30 giây</span>
+        <h3>Quét VietQR — khám ngay.</h3>
+        <ul>
+          <li><Icon name="check" /> Phí khám 25.000đ/lượt — không phí ẩn</li>
+          <li><Icon name="check" /> Quét bằng app ngân hàng bất kỳ (VietQR)</li>
+          <li><Icon name="check" /> Bác sĩ tiếp nhận ngay sau khi nhận phí</li>
+        </ul>
+        <button
+          className="text-link"
+          type="button"
+          onClick={() => { navigator.clipboard?.writeText('BRIMED-VIETQR').catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+        >
+          {copied ? 'Đã sao chép nội dung chuyển khoản' : 'Xem nội dung chuyển khoản mẫu'} <Icon name="arrow" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -359,10 +409,10 @@ export default function Landing({ submitLead }: { submitLead: (form: { full_name
           </div>
           <div className="price-side">
             <div className="price-cards">
-              <article className="price-card featured"><span>Ưu đãi bắt đầu</span><div><strong>0đ</strong><small>/ 2 toa đầu tiên</small></div><p>Áp dụng cho khách hàng sử dụng BriMed lần đầu.</p></article>
-              <article className="price-card"><span>Từ toa thứ 3</span><div><strong>15.000đ</strong><small>/ toa</small></div><p>Chi phí được xác nhận trước khi kết nối bác sĩ.</p></article>
+              <article className="price-card featured"><span>Người bệnh</span><div><strong>25.000đ</strong><small>/ lượt khám</small></div><p>Thanh toán qua VietQR ngay trong web. Bác sĩ nhận 15.000đ, BriMed giữ 10.000đ (gồm GTGT).</p></article>
+              <article className="price-card"><span>Nhà thuốc đối tác</span><div><strong>500.000đ</strong><small>/ tháng</small></div><p>Tháng đầu miễn phí. Sau 6 tháng đầu là 900.000đ/tháng. Không hoa hồng tiền thuốc.</p></article>
             </div>
-            <TokenCheckoutMock />
+            <QrShowcase />
           </div>
         </section>
 
@@ -426,8 +476,8 @@ export default function Landing({ submitLead }: { submitLead: (form: { full_name
         <div>
           <strong>Nhà thuốc</strong>
           <Link to="/nha-thuoc-doi-tac">Đăng ký nhà thuốc đối tác</Link>
-          <Link to="/goi-1-thang-brimed-nha-thuoc">Gói 1 tháng — 1.200.000đ</Link>
-          <Link to="/goi-3-thang-brimed-nha-thuoc">Gói 3 tháng — 2.700.000đ</Link>
+          <Link to="/goi-1-thang-brimed-nha-thuoc">6 tháng đầu — 500.000đ/tháng</Link>
+          <Link to="/goi-3-thang-brimed-nha-thuoc">Sau 6 tháng đầu — 900.000đ/tháng</Link>
         </div>
         <div>
           <strong>Hỗ trợ</strong>

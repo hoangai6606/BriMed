@@ -38,19 +38,16 @@ r.get('/stats', async (_req, res) => {
     const avgWait = waitMins.length ? waitMins.reduce((a: number, b: number) => a + b, 0) / waitMins.length : 0
 
     const b2bRevenue = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='b2b_subscription'`)).rows[0].v
-    const tokenRevenue = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='token_deduct'`)).rows[0].v
+    const consultRevenue = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='consultation_fee'`)).rows[0].v
     const doctorFees = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='doctor_fee'`)).rows[0].v
 
     const patients = (await pool.query(`SELECT * FROM users WHERE role='patient'`)).rows
-    const usedAllFree = patients.filter((p: any) => p.free_prescriptions <= 0)
-    const returnedPatients = []
-    for (const p of usedAllFree) {
-      const c = (await pool.query(
-        `SELECT COUNT(*)::int AS c FROM transactions WHERE user_id = $1 AND type IN ('token_deduct')`,
-        [p.id]
-      )).rows[0].c
-      if (c > 0) returnedPatients.push(p)
-    }
+    // Tỷ lệ quay lại: bệnh nhân có từ 2 lượt khám trở lên / tổng bệnh nhân đã khám
+    const patientsWithConsults = (await pool.query(`
+      SELECT patient_id, COUNT(*)::int AS c FROM consultations GROUP BY patient_id`)).rows
+    const consultMap = new Map(patientsWithConsults.map((r: any) => [r.patient_id, r.c]))
+    const activePatients = patients.filter((p: any) => (consultMap.get(p.id) || 0) > 0)
+    const returnedPatients = activePatients.filter((p: any) => (consultMap.get(p.id) || 0) >= 2)
 
     res.json({
       kpi: {
@@ -62,9 +59,9 @@ r.get('/stats', async (_req, res) => {
         antibiotic_rate: issuedTotal ? Math.round((abTotal / issuedTotal) * 1000) / 10 : 0,
         antibiotic_rate_this_month: issuedThisMonth ? Math.round((abThisMonth / issuedThisMonth) * 1000) / 10 : 0,
         antibiotic_threshold: ANTIBIOTIC_THRESHOLD,
-        retention_rate: usedAllFree.length ? Math.round((returnedPatients.length / usedAllFree.length) * 1000) / 10 : 0,
+        retention_rate: activePatients.length ? Math.round((returnedPatients.length / activePatients.length) * 1000) / 10 : 0,
         revenue_b2b_vnd: b2bRevenue,
-        revenue_token_vnd: tokenRevenue,
+        revenue_consultation_vnd: consultRevenue,
         doctor_fees_vnd: doctorFees,
         counts: {
           patients: patients.length,
@@ -86,7 +83,7 @@ r.get('/users', async (_req, res) => {
   try {
     await ensureDb()
     const { rows } = await pool.query(`
-      SELECT u.id, u.full_name, u.phone, u.role, u.token_balance, u.free_prescriptions, u.doctor_specialty, u.pharmacy_id,
+      SELECT u.id, u.full_name, u.phone, u.role, u.doctor_specialty, u.pharmacy_id,
         (SELECT name FROM pharmacies WHERE id = u.pharmacy_id) pharmacy_name, u.created_at
       FROM users u ORDER BY u.role, u.full_name`)
     res.json({ users: rows })
@@ -103,8 +100,8 @@ r.put('/users/:id', async (req, res) => {
     if (!u) return res.status(404).json({ error: 'Không tìm thấy tài khoản.' })
     const b = req.body || {}
     await pool.query(
-      'UPDATE users SET token_balance = $1, doctor_online = $2 WHERE id = $3',
-      [b.token_balance ?? u.token_balance, b.doctor_online !== undefined ? (b.doctor_online ? 1 : 0) : u.doctor_online, u.id]
+      'UPDATE users SET doctor_online = $1 WHERE id = $2',
+      [b.doctor_online !== undefined ? (b.doctor_online ? 1 : 0) : u.doctor_online, u.id]
     )
     res.json({ ok: true })
   } catch (e) {

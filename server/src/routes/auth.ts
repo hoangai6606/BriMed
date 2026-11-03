@@ -4,7 +4,7 @@ import { createSession, mePayload, requireAuth, sha256 } from '../auth'
 
 const r = Router()
 
-// Đăng ký tài khoản — bệnh nhân được tặng 20 token & 2 toa miễn phí
+// Đăng ký tài khoản — miễn phí, phí khám trả theo lượt qua VietQR
 r.post('/register', async (req, res) => {
   try {
     await ensureDb()
@@ -20,19 +20,12 @@ r.post('/register', async (req, res) => {
     const dup = await pool.query('SELECT id FROM users WHERE phone = $1', [phone])
     if (dup.rows[0]) return res.status(409).json({ error: 'Số điện thoại đã được đăng ký.' })
     const { rows } = await pool.query(
-      `INSERT INTO users (full_name, phone, password_hash, cccd, role, token_balance, free_prescriptions, created_at)
-       VALUES ($1, $2, $3, $4, $5, 20, $6, $7) RETURNING id`,
-      [full_name, phone, sha256(password), cccd || '', role, role === 'patient' ? 2 : 0, nowIso()]
+      `INSERT INTO users (full_name, phone, password_hash, cccd, role, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [full_name, phone, sha256(password), cccd || '', role, nowIso()]
     )
     const userId = rows[0].id
     await pool.query('INSERT INTO health_profiles (user_id, share_consent) VALUES ($1, 1)', [userId])
-    if (role === 'patient') {
-      await pool.query(
-        `INSERT INTO transactions (user_id, type, amount_token, description, created_at)
-         VALUES ($1, 'topup', 20, 'Tặng 20 token chào mừng tài khoản mới', $2)`,
-        [userId, nowIso()]
-      )
-    }
     const user = (await pool.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0]
     const token = await createSession(userId)
     res.json({ token, ...mePayload(user) })

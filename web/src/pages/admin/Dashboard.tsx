@@ -144,7 +144,7 @@ export default function AdminDashboard() {
             />
             <KpiCard icon={<RefreshCcw size={18} />} label="Khách quay lại sau 2 toa tặng" value={`${kpi.retention_rate}%`} tone="pink" />
             <KpiCard icon={<Store size={18} />} label="Doanh thu thuê bao B2B" value={fmtVnd(kpi.revenue_b2b_vnd)} tone="blue" />
-            <KpiCard icon={<Coins size={18} />} label="Doanh thu token B2C" value={fmtVnd(kpi.revenue_token_vnd)} tone="pink" />
+            <KpiCard icon={<Coins size={18} />} label="Doanh thu phí khám" value={fmtVnd(kpi.revenue_consultation_vnd)} tone="pink" />
             <KpiCard icon={<Users size={18} />} label="Bác sĩ trực / tổng" value={`${kpi.counts.doctors_online}/${kpi.counts.doctors}`} tone="blue" />
           </div>
 
@@ -183,7 +183,6 @@ export default function AdminDashboard() {
                   <th className="px-3.5 py-2.5">Họ tên</th>
                   <th className="px-2 py-2.5">SĐT</th>
                   <th className="px-2 py-2.5">Vai trò</th>
-                  <th className="px-2 py-2.5 text-right">Token</th>
                   <th className="px-3 py-2.5 text-right">Trạng thái</th>
                 </tr>
               </thead>
@@ -201,7 +200,6 @@ export default function AdminDashboard() {
                         u.role === 'doctor' ? 'bg-mint-bg text-mint-fg' : u.role === 'pharmacy' ? 'bg-lightpink text-pink-dark' : u.role === 'admin' ? 'bg-slate-200 text-slate-700' : 'bg-lightblue text-bluedark'
                       }`}>{ROLE_LABELS[u.role]}</span>
                     </td>
-                    <td className="px-2 py-2.5 text-right font-bold">{u.role === 'patient' ? `${u.token_balance} (${u.free_prescriptions} free)` : '—'}</td>
                     <td className="px-3 py-2.5 text-right">
                       {u.role === 'doctor' ? (
                         <button onClick={() => toggleOnline(u)} className={`badge ${u.doctor_online ? 'bg-mint-bg text-mint-fg' : 'bg-slate-100 text-slate-500'}`}>
