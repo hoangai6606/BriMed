@@ -240,7 +240,7 @@ export function ensureDb(): Promise<void> {
       // (tài khoản 4 vai trò, nhà thuốc, thuốc, tồn kho, tư vấn, đơn thuốc...)
       const users = await pool.query(`SELECT COUNT(*)::int AS c FROM users`)
       if (users.rows[0].c === 0) {
-        const { seedDb } = await import('./seed')
+        const { seedDb } = await import('./seed.js')
         await seedDb()
         return
       }
