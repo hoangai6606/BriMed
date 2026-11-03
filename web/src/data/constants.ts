@@ -147,7 +147,7 @@ export const CUSTOMER_FAQ = [
   },
   {
     q: 'Nếu bác sĩ thấy không nên kê đơn thì sao?',
-    a: 'Bác sĩ sẽ hướng dẫn bạn đến cơ sở y tế gần nhất để khám trực tiếp. Trường hợp này bạn không mất phí tư vấn.',
+    a: 'Bác sĩ sẽ hướng dẫn bạn đến cơ sở y tế gần nhất để khám trực tiếp. Phí khám đã bao gồm công đánh giá và tư vấn chuyển hướng của bác sĩ, nên không được hoàn lại — BriMed luôn yêu cầu bác sĩ xử lý từng lượt khám đã nhận.',
   },
   {
     q: 'Tôi dùng BriMed ở nhà thuốc nào?',
