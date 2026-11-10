@@ -83,6 +83,22 @@ function paymentInfo(id: number) {
   }
 }
 
+// Cấp token vào phòng gọi video (LiveKit) — chỉ khi bác sĩ đã bắt đầu cuộc gọi
+r.post('/consultations/:id/call-token', async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT * FROM consultations WHERE id = $1 AND patient_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
+    if (c.payment_status !== 'paid') return res.status(402).json({ error: 'Bạn chưa thanh toán phí khám cho lượt này.' })
+    if (c.status !== 'in_call') return res.status(400).json({ error: 'Bác sĩ chưa bắt đầu cuộc gọi. Vui lòng chờ trong giây lát.' })
+    const { livekitEnabled, mintCallToken } = await import('../livekit')
+    if (!livekitEnabled()) return res.status(503).json({ error: 'Tính năng gọi video chưa được kích hoạt trên hệ thống.' })
+    res.json(await mintCallToken(c.id, { id: req.user.id, full_name: req.user.full_name }, 'patient'))
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 r.post('/consultations', async (req, res) => {
   try {
     const b = req.body || {}

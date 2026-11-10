@@ -5,6 +5,7 @@ import { SeoMeta } from '../../components/common/SeoMeta'
 import { api } from '../../api/client'
 import { PageLoading, Modal } from '../../components/common/Misc'
 import { useUi } from '../../store/ui'
+import { VideoCallRoom } from '../../components/domain/VideoCallRoom'
 
 export default function DoctorConsultation() {
   const { id } = useParams()
@@ -12,6 +13,7 @@ export default function DoctorConsultation() {
   const toast = useUi((s) => s.toast)
   const [data, setData] = useState<any>(null)
   const [callState, setCallState] = useState<'idle' | 'ringing' | 'active' | 'ended'>('idle')
+  const [videoOpen, setVideoOpen] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [muted, setMuted] = useState(false)
   const [callNote, setCallNote] = useState('')
@@ -50,6 +52,17 @@ export default function DoctorConsultation() {
       body: JSON.stringify({ action: 'end', duration_sec: seconds, call_note: callNote || `Gọi ngắn ${seconds}s, bệnh nhân xác nhận triệu chứng.` }),
     }).catch(() => {})
     toast('Đã kết thúc cuộc gọi ngắn và lưu ghi chú.', 'success')
+    load()
+  }
+
+  // Kết thúc cuộc gọi video — ghi thời lượng thật vào call-log
+  const endVideoCall = async (sec: number, note: string) => {
+    await api(`/doctor/consultations/${id}/call-log`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'end', duration_sec: sec, call_note: callNote || note }),
+    }).catch(() => {})
+    setVideoOpen(false)
+    setCallState('ended')
     load()
   }
 
@@ -165,11 +178,28 @@ export default function DoctorConsultation() {
       {/* Call widget */}
       {!decided && (
         <section className="card p-4">
-          <h2 className="section-title mb-3">Cuộc gọi ngắn xác nhận (1–2 phút)</h2>
-          {callState === 'idle' && (
-            <button onClick={startCall} className="btn-pink w-full !min-h-[52px] !text-[16px] pulse-ring">
-              <PhoneCall size={20} /> Gọi bệnh nhân tại quầy
-            </button>
+          <h2 className="section-title mb-3">Cuộc gọi xác nhận (video · tối đa 7 phút)</h2>
+          {videoOpen && (
+            <VideoCallRoom consultationId={id!} role="doctor" onEnded={endVideoCall} />
+          )}
+          {!videoOpen && callState === 'idle' && (
+            <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  setVideoOpen(true)
+                  await api(`/doctor/consultations/${id}/call-log`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => {})
+                }}
+                className="btn-pink w-full !min-h-[52px] !text-[16px] pulse-ring"
+              >
+                <Video size={20} /> Gọi video bệnh nhân tại quầy
+              </button>
+              <p className="text-[12px] text-slate-400 text-center">
+                Mạng yếu hoặc bệnh nhân không có camera?{' '}
+                <button onClick={startCall} className="font-bold text-primary hover:underline">
+                  Ghi nhận cuộc gọi điện thoại
+                </button>
+              </p>
+            </div>
           )}
           {callState === 'ringing' && (
             <div className="text-center py-6">

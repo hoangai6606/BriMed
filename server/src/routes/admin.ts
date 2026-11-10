@@ -40,6 +40,9 @@ r.get('/stats', async (_req, res) => {
     const b2bRevenue = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='b2b_subscription'`)).rows[0].v
     const consultRevenue = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='consultation_fee'`)).rows[0].v
     const doctorFees = (await pool.query(`SELECT COALESCE(SUM(amount_vnd),0)::int AS v FROM transactions WHERE type='doctor_fee'`)).rows[0].v
+    const videoSecMonth = (await pool.query(
+      `SELECT COALESCE(SUM(call_duration_sec),0)::int AS s FROM consultations WHERE call_started_at >= $1`, [monthStartIso]
+    )).rows[0].s
 
     const patients = (await pool.query(`SELECT * FROM users WHERE role='patient'`)).rows
     // Tỷ lệ quay lại: bệnh nhân có từ 2 lượt khám trở lên / tổng bệnh nhân đã khám
@@ -63,6 +66,7 @@ r.get('/stats', async (_req, res) => {
         revenue_b2b_vnd: b2bRevenue,
         revenue_consultation_vnd: consultRevenue,
         doctor_fees_vnd: doctorFees,
+        video_minutes_this_month: Math.round((videoSecMonth / 60) * 10) / 10,
         counts: {
           patients: patients.length,
           doctors: (await pool.query(`SELECT COUNT(*)::int AS c FROM users WHERE role='doctor'`)).rows[0].c,

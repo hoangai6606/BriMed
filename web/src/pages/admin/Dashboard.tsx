@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  Video,
   ShieldCheck, AlertTriangle, Timer, XCircle, Pill, RefreshCcw, Users, Coins,
   Store, TrendingUp, RotateCcw, FileCheck2, ListChecks, UserPlus,
 } from 'lucide-react'
@@ -142,10 +143,11 @@ export default function AdminDashboard() {
               sub={`ngưỡng ${kpi.antibiotic_threshold}%`}
               tone={abOver ? 'red' : 'green'}
             />
-            <KpiCard icon={<RefreshCcw size={18} />} label="Khách quay lại sau 2 toa tặng" value={`${kpi.retention_rate}%`} tone="pink" />
+            <KpiCard icon={<RefreshCcw size={18} />} label="Tỷ lệ bệnh nhân quay lại" value={`${kpi.retention_rate}%`} tone="pink" />
             <KpiCard icon={<Store size={18} />} label="Doanh thu thuê bao B2B" value={fmtVnd(kpi.revenue_b2b_vnd)} tone="blue" />
             <KpiCard icon={<Coins size={18} />} label="Doanh thu phí khám" value={fmtVnd(kpi.revenue_consultation_vnd)} tone="pink" />
             <KpiCard icon={<Users size={18} />} label="Bác sĩ trực / tổng" value={`${kpi.counts.doctors_online}/${kpi.counts.doctors}`} tone="blue" />
+            <KpiCard icon={<Video size={18} />} label="Phút gọi video (tháng)" value={`${kpi.video_minutes_this_month ?? 0} phút`} sub="gói miễn phí 10.000 phút/tháng" tone="blue" />
           </div>
 
           {abOver && (

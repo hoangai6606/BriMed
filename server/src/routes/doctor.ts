@@ -72,6 +72,28 @@ r.get('/consultations/:id', async (req, res) => {
   }
 })
 
+// Cấp token vào phòng gọi video (LiveKit) của lượt khám
+r.post('/consultations/:id/call-token', async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT * FROM consultations WHERE id = $1', [req.params.id])).rows[0]
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
+    if (['approved', 'rejected'].includes(c.status)) return res.status(400).json({ error: 'Yêu cầu đã được xử lý.' })
+    if (c.payment_status !== 'paid') return res.status(402).json({ error: 'Bệnh nhân chưa thanh toán phí khám — chưa thể gọi video.' })
+    if (c.status === 'in_call' && c.doctor_id && c.doctor_id !== req.user.id) {
+      return res.status(403).json({ error: 'Cuộc gọi đang được bác sĩ khác xử lý.' })
+    }
+    const { livekitEnabled, mintCallToken } = await import('../livekit')
+    if (!livekitEnabled()) return res.status(503).json({ error: 'Tính năng gọi video chưa được kích hoạt trên hệ thống.' })
+    if (c.status === 'pending') {
+      await pool.query(`UPDATE consultations SET status = 'in_call', doctor_id = $1, call_started_at = $2 WHERE id = $3`, [req.user.id, nowIso(), c.id])
+    }
+    res.json(await mintCallToken(c.id, { id: req.user.id, full_name: req.user.full_name }, 'doctor'))
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 // Bắt đầu / kết thúc cuộc gọi ngắn 1–2 phút
 r.post('/consultations/:id/call-log', async (req, res) => {
   try {

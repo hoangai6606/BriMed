@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
-import { Stethoscope, FileText, Search, ShoppingCart, UserRound, ChevronRight, Clock, BadgeCheck } from 'lucide-react'
+import { Stethoscope, FileText, Search, ShoppingCart, UserRound, ChevronRight, Clock, BadgeCheck, Video } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { useAuth } from '../../store/auth'
 import { api, timeAgo } from '../../api/client'
 import { useEffect, useState } from 'react'
 import { VietQRPay } from '../../components/domain/VietQRPay'
+import { VideoCallRoom } from '../../components/domain/VideoCallRoom'
 import { Modal } from '../../components/common/Misc'
 
 const SHORTCUTS = [
@@ -22,18 +23,23 @@ export default function PatientDashboard() {
   const [rxs, setRxs] = useState<any[]>([])
   const [unpaid, setUnpaid] = useState<any[]>([])
   const [paying, setPaying] = useState<any | null>(null)
+  const [videoCall, setVideoCall] = useState<any | null>(null)
 
   const loadUnpaid = () =>
     api('/patient/consultations/mine').then((d) => {
       const all = d.consultations || []
       setRecent(all.slice(0, 3))
       setUnpaid(all.filter((c: any) => c.payment_status === 'unpaid' && c.status === 'pending'))
-    }).catch(() => {})
+      return all
+    }).catch(() => [])
 
   useEffect(() => {
     refresh()
     loadUnpaid()
     api('/patient/prescriptions/mine').then((d) => setRxs((d.prescriptions || []).filter((p: any) => p.status === 'issued').slice(0, 2))).catch(() => {})
+    // Tự làm mới mỗi 15 giây để bắt trạng thái bác sĩ bắt đầu gọi video
+    const t = window.setInterval(() => loadUnpaid(), 15000)
+    return () => window.clearInterval(t)
   }, [])
 
   return (
@@ -123,11 +129,18 @@ export default function PatientDashboard() {
                   <div className="text-[13.5px] font-bold text-slate-700 truncate">{c.disease_group}</div>
                   <div className="text-[12px] text-slate-400 flex items-center gap-1"><Clock size={11} /> {timeAgo(c.created_at)} · {c.doctor_name || 'Đang chờ bác sĩ'}</div>
                 </div>
-                <span className={`badge ${
-                  c.status === 'approved' ? 'bg-mint-bg text-mint-fg' : c.status === 'rejected' ? 'bg-redflag-bg text-redflag-fg' : c.status === 'in_call' ? 'bg-lightpink text-pink-dark' : 'bg-amber-100 text-amber-700'
-                }`}>
-                  {c.status === 'approved' ? 'Đã duyệt' : c.status === 'rejected' ? 'Từ chối' : c.status === 'in_call' ? 'Đang gọi' : 'Chờ bác sĩ'}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {c.status === 'in_call' && (
+                    <button onClick={() => setVideoCall(c)} className="btn-pink !min-h-[34px] !px-3 !text-[12.5px] pulse-ring">
+                      <Video size={14} /> Vào phòng gọi
+                    </button>
+                  )}
+                  <span className={`badge ${
+                    c.status === 'approved' ? 'bg-mint-bg text-mint-fg' : c.status === 'rejected' ? 'bg-redflag-bg text-redflag-fg' : c.status === 'in_call' ? 'bg-lightpink text-pink-dark' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {c.status === 'approved' ? 'Đã duyệt' : c.status === 'rejected' ? 'Từ chối' : c.status === 'in_call' ? 'Đang gọi' : 'Chờ bác sĩ'}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
@@ -142,6 +155,20 @@ export default function PatientDashboard() {
             payment={{ consultation_id: paying.id, amount_vnd: 25000, content: `BRIMED ${paying.id}` }}
             onPaid={() => {
               setPaying(null)
+              loadUnpaid()
+            }}
+          />
+        )}
+      </Modal>
+
+      {/* Phòng gọi video với bác sĩ */}
+      <Modal open={!!videoCall} onClose={() => setVideoCall(null)} title="Cuộc gọi video với bác sĩ">
+        {videoCall && (
+          <VideoCallRoom
+            consultationId={videoCall.id}
+            role="patient"
+            onEnded={() => {
+              setVideoCall(null)
               loadUnpaid()
             }}
           />
