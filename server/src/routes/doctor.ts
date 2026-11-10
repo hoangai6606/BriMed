@@ -82,7 +82,7 @@ r.post('/consultations/:id/call-token', async (req, res) => {
     if (c.status === 'in_call' && c.doctor_id && c.doctor_id !== req.user.id) {
       return res.status(403).json({ error: 'Cuộc gọi đang được bác sĩ khác xử lý.' })
     }
-    const { livekitEnabled, mintCallToken } = await import('../livekit')
+    const { livekitEnabled, mintCallToken } = await import('../livekit.js')
     if (!livekitEnabled()) return res.status(503).json({ error: 'Tính năng gọi video chưa được kích hoạt trên hệ thống.' })
     if (c.status === 'pending') {
       await pool.query(`UPDATE consultations SET status = 'in_call', doctor_id = $1, call_started_at = $2 WHERE id = $3`, [req.user.id, nowIso(), c.id])

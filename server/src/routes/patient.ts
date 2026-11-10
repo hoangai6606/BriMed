@@ -90,7 +90,7 @@ r.post('/consultations/:id/call-token', async (req, res) => {
     if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
     if (c.payment_status !== 'paid') return res.status(402).json({ error: 'Bạn chưa thanh toán phí khám cho lượt này.' })
     if (c.status !== 'in_call') return res.status(400).json({ error: 'Bác sĩ chưa bắt đầu cuộc gọi. Vui lòng chờ trong giây lát.' })
-    const { livekitEnabled, mintCallToken } = await import('../livekit')
+    const { livekitEnabled, mintCallToken } = await import('../livekit.js')
     if (!livekitEnabled()) return res.status(503).json({ error: 'Tính năng gọi video chưa được kích hoạt trên hệ thống.' })
     res.json(await mintCallToken(c.id, { id: req.user.id, full_name: req.user.full_name }, 'patient'))
   } catch (e) {
