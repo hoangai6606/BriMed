@@ -26,7 +26,18 @@ CREATE TABLE IF NOT EXISTS users (
   doctor_specialty TEXT,
   doctor_license TEXT,
   doctor_online INTEGER NOT NULL DEFAULT 0,
+  avatar_url TEXT DEFAULT '',
   pharmacy_id INTEGER,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS doctor_slots (
+  id SERIAL PRIMARY KEY,
+  doctor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  starts_at TEXT NOT NULL,
+  duration_min INTEGER NOT NULL DEFAULT 30,
+  capacity INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','cancelled')),
   created_at TEXT NOT NULL
 );
 
@@ -233,6 +244,9 @@ export function ensureDb(): Promise<void> {
       await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid'`)
       await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS paid_at TEXT`)
       await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consultation_id INTEGER`)
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`)
+      await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_doctor_id INTEGER`)
+      await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS slot_id INTEGER`)
       // Các tư vấn cũ đã đi vào vận hành coi như đã thanh toán
       await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = COALESCE(paid_at, created_at) WHERE payment_status = 'unpaid' AND status IN ('in_call','approved','rejected')`)
 

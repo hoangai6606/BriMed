@@ -87,7 +87,7 @@ r.get('/users', async (_req, res) => {
   try {
     await ensureDb()
     const { rows } = await pool.query(`
-      SELECT u.id, u.full_name, u.phone, u.role, u.doctor_specialty, u.pharmacy_id,
+      SELECT u.id, u.full_name, u.phone, u.role, u.doctor_specialty, u.doctor_online, u.avatar_url, u.pharmacy_id,
         (SELECT name FROM pharmacies WHERE id = u.pharmacy_id) pharmacy_name, u.created_at
       FROM users u ORDER BY u.role, u.full_name`)
     res.json({ users: rows })

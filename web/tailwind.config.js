@@ -14,7 +14,7 @@ export default {
         lightblue: '#B9D9FF',
         lightpink: '#FFC2DD',
         bluedark: '#0756AF',
-        mint: { bg: '#E6F4EA', fg: '#1E8E3E' },
+        mint: { bg: '#EAF2FD', fg: '#0d71e2' },
         redflag: { bg: '#FCE8E6', fg: '#D93025' },
       },
       fontFamily: {

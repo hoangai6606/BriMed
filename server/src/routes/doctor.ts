@@ -42,14 +42,84 @@ async function payDoctorFee(doctorId: number, consultationId: number, nationalCo
 }
 
 // ---------- Hàng đợi ----------
+// Hàng đợi: lượt hẹn giờ (slot) theo giờ hẹn tăng dần -> lượt chỉ định tôi -> walk-in FIFO
 r.get('/queue', async (req, res) => {
   try {
-    const pending = (await pool.query(`SELECT * FROM consultations WHERE status = 'pending' AND payment_status = 'paid' ORDER BY created_at ASC`)).rows
+    const pending = (await pool.query(
+      `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min,
+              (c.preferred_doctor_id = $1) AS for_me,
+              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status != 'rejected' AND c3.id < c.id) AS slot_position
+       FROM consultations c
+       LEFT JOIN doctor_slots ds ON ds.id = c.slot_id
+       WHERE c.status = 'pending' AND c.payment_status = 'paid'
+         AND (c.slot_id IS NULL OR ds.status = 'open')
+       ORDER BY (c.slot_id IS NOT NULL) DESC, ds.starts_at ASC NULLS LAST,
+                (c.preferred_doctor_id = $1) DESC, c.created_at ASC`,
+      [req.user.id]
+    )).rows
     const mine = (await pool.query(
       `SELECT * FROM consultations WHERE doctor_id = $1 AND status IN ('in_call','approved','rejected') ORDER BY created_at DESC LIMIT 20`,
       [req.user.id]
     )).rows
     res.json({ queue: await Promise.all(pending.map(attachNames)), mine: await Promise.all(mine.map(attachNames)) })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// ---------- Lịch trực của bác sĩ (khung giờ nhận lượt hẹn) ----------
+r.get('/slots', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ds.*,
+        (SELECT COUNT(*)::int FROM consultations c WHERE c.slot_id = ds.id AND c.status != 'rejected') AS booked
+       FROM doctor_slots ds
+       WHERE ds.doctor_id = $1 AND ds.status = 'open' AND ds.starts_at > $2
+       ORDER BY ds.starts_at ASC`,
+      [req.user.id, new Date().toISOString()]
+    )
+    res.json({ slots: rows })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+r.post('/slots', async (req, res) => {
+  try {
+    const b = req.body || {}
+    if (!b.starts_at) return res.status(400).json({ error: 'Vui lòng chọn thời gian bắt đầu khung giờ.' })
+    const startsAt = new Date(b.starts_at)
+    if (isNaN(startsAt.getTime())) return res.status(400).json({ error: 'Thời gian không hợp lệ.' })
+    if (startsAt.getTime() < Date.now()) return res.status(400).json({ error: 'Khung giờ phải ở tương lai.' })
+    const duration = Math.min(Math.max(Number(b.duration_min) || 30, 15), 120)
+    const capacity = Math.min(Math.max(Number(b.capacity) || 1, 1), 10)
+    const ins = await pool.query(
+      `INSERT INTO doctor_slots (doctor_id, starts_at, duration_min, capacity, status, created_at)
+       VALUES ($1,$2,$3,$4,'open',$5) RETURNING *`,
+      [req.user.id, startsAt.toISOString(), duration, capacity, nowIso()]
+    )
+    res.json({ slot: ins.rows[0] })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+r.delete('/slots/:id', async (req, res) => {
+  try {
+    const slot = (await pool.query('SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!slot) return res.status(404).json({ error: 'Không tìm thấy khung giờ.' })
+    const booked = (await pool.query(
+      `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status != 'rejected'`, [slot.id]
+    )).rows[0].c
+    if (booked > 0) {
+      await pool.query(`UPDATE doctor_slots SET status = 'cancelled' WHERE id = $1`, [slot.id])
+      return res.json({ ok: true, message: `Khung giờ có ${booked} bệnh nhân đã đặt — đã chuyển sang trạng thái huỷ, các lượt sẽ về hàng đợi thường. Vui lòng thông báo cho bệnh nhân.` })
+    }
+    await pool.query(`DELETE FROM doctor_slots WHERE id = $1`, [slot.id])
+    res.json({ ok: true })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, ClipboardList, UserRound, PhoneCall, CheckCircle2, XCircle, Lock } from 'lucide-react'
+import { AlarmClock, CalendarClock, ClipboardList, Plus, Trash2, UserRound, PhoneCall, CheckCircle2, XCircle, Lock } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { api, timeAgo } from '../../api/client'
 import { PageLoading } from '../../components/common/Misc'
+import { useUi } from '../../store/ui'
 import { CONSULT_STATUS } from '../../data/constants'
 
 function SlaChip({ createdAt }: { createdAt: string }) {
@@ -27,10 +28,38 @@ function SlaChip({ createdAt }: { createdAt: string }) {
 export default function DoctorDashboard() {
   const [data, setData] = useState<any>(null)
   const [patients, setPatients] = useState<any[]>([])
+  const [slots, setSlots] = useState<any[]>([])
+  const [slotForm, setSlotForm] = useState({ starts_at: '', duration_min: 30, capacity: 1 })
+  const [slotBusy, setSlotBusy] = useState(false)
+  const toast = useUi((s) => s.toast)
+
+  const loadSlots = useCallback(() => {
+    api('/doctor/slots').then((d) => setSlots(d.slots)).catch(() => setSlots([]))
+  }, [])
+
+  const createSlot = async () => {
+    if (!slotForm.starts_at) { toast('Vui lòng chọn thời gian bắt đầu.', 'error'); return }
+    setSlotBusy(true)
+    try {
+      await api('/doctor/slots', { method: 'POST', body: JSON.stringify(slotForm) })
+      toast('Đã mở khung giờ nhận lượt hẹn.', 'success')
+      setSlotForm({ starts_at: '', duration_min: 30, capacity: 1 })
+      loadSlots()
+    } catch (e: any) { toast(e.message, 'error') } finally { setSlotBusy(false) }
+  }
+
+  const removeSlot = async (id: number) => {
+    try {
+      const d = await api(`/doctor/slots/${id}`, { method: 'DELETE' })
+      toast(d.message || 'Đã xoá khung giờ.', 'success')
+      loadSlots()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
 
   const load = useCallback(() => {
     api('/doctor/queue').then(setData).catch(() => setData({ queue: [], mine: [] }))
     api('/doctor/patients').then((d) => setPatients(d.patients)).catch(() => setPatients([]))
+    loadSlots()
   }, [])
 
   useEffect(() => {
@@ -48,6 +77,46 @@ export default function DoctorDashboard() {
         <h1 className="text-[20px] font-extrabold text-bluedark">Hàng đợi yêu cầu tư vấn</h1>
         <span className="badge bg-lightpink text-pink-dark">Mục tiêu phản hồi &lt; 3–5 phút</span>
       </div>
+
+      {/* Lịch trực — khung giờ nhận lượt hẹn */}
+      <section className="card p-4">
+        <h2 className="section-title flex items-center gap-2 mb-1">
+          <CalendarClock size={18} className="text-pink" /> Lịch trực — mở khung giờ nhận lượt hẹn
+        </h2>
+        <p className="text-[12px] text-slate-400 mb-3">Bệnh nhân có thể đặt trước các khung giờ này; lượt hẹn luôn được xử lý trước lượt walk-in.</p>
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+          <div>
+            <label className="label" htmlFor="slot-start">Thời gian bắt đầu</label>
+            <input id="slot-start" type="datetime-local" className="input" value={slotForm.starts_at} onChange={(e) => setSlotForm({ ...slotForm, starts_at: e.target.value })} />
+          </div>
+          <div>
+            <label className="label" htmlFor="slot-dur">Phút</label>
+            <input id="slot-dur" type="number" min={15} max={120} step={15} className="input !w-20 !min-h-[42px]" value={slotForm.duration_min} onChange={(e) => setSlotForm({ ...slotForm, duration_min: Number(e.target.value) })} />
+          </div>
+          <div>
+            <label className="label" htmlFor="slot-cap">Chỗ</label>
+            <input id="slot-cap" type="number" min={1} max={10} className="input !w-16 !min-h-[42px]" value={slotForm.capacity} onChange={(e) => setSlotForm({ ...slotForm, capacity: Number(e.target.value) })} />
+          </div>
+          <button onClick={createSlot} disabled={slotBusy} className="btn-pink !min-h-[42px] !px-3 flex items-center gap-1.5">
+            <Plus size={16} /> Mở lịch
+          </button>
+        </div>
+        {slots.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {slots.map((x: any) => (
+              <li key={x.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2.5">
+                <div className="text-[13.5px]">
+                  <span className="font-bold text-slate-700">{new Date(x.starts_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                  <span className="text-slate-400"> · {x.duration_min} phút · còn {x.capacity - x.booked}/{x.capacity} chỗ</span>
+                </div>
+                <button onClick={() => removeSlot(x.id)} className="text-slate-400 hover:text-redflag-fg" aria-label="Xoá khung giờ">
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Queue */}
       <section className="card p-4">
@@ -68,6 +137,8 @@ export default function DoctorDashboard() {
                     <div className="text-[13px] text-primary font-semibold mt-0.5">{c.disease_group}</div>
                     <div className="text-[12.5px] text-slate-500 mt-0.5 line-clamp-2">{c.symptom}</div>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {c.slot_starts_at && <span className="badge bg-lightblue text-bluedark font-bold">Lịch hẹn {new Date(c.slot_starts_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>}
+                      {c.for_me && !c.slot_starts_at && <span className="badge bg-lightpink text-pink-dark font-bold">Bệnh nhân chỉ định bạn</span>}
                       {c.fever ? <span className="badge bg-amber-100 text-amber-700">Sốt {c.fever_days} ngày</span> : null}
                       {c.duration_days ? <span className="badge bg-slate-100 text-slate-600">Bệnh {c.duration_days} ngày</span> : null}
                       {c.drug_allergies && c.drug_allergies !== 'Không' ? <span className="badge bg-lightpink text-pink-dark">Dị ứng: {c.drug_allergies}</span> : null}

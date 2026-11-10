@@ -106,11 +106,11 @@ export async function seedDb(): Promise<void> {
     { full_name: 'Trần Văn Hùng', phone: '0902222333', password_hash: pw, cccd: '045203004567', role: 'patient' },
     { full_name: 'Lê Minh Tuấn', phone: '0903333444', password_hash: pw, cccd: '079204005678', role: 'patient' },
     { full_name: 'Phạm Thị Hồng', phone: '0904444555', password_hash: pw, cccd: '028197002345', role: 'patient' },
-    { full_name: 'BS. Nguyễn Văn Minh', phone: '0908888881', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Nội tổng quát', doctor_license: 'BYT-BS-2011-00567', doctor_online: 1 },
-    { full_name: 'BS. Trần Thị Thu Hà', phone: '0908888882', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Tai Mũi Họng', doctor_license: 'BYT-BS-2014-00231', doctor_online: 1 },
-    { full_name: 'BS. Lê Hoàng Sơn', phone: '0908888883', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Da Liễu', doctor_license: 'BYT-BS-2016-00893', doctor_online: 0 },
-    { full_name: 'BS. Phạm Ngọc Anh', phone: '0908888884', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Nội tổng quát – Hô hấp', doctor_license: 'BYT-BS-2019-01120', doctor_online: 1 },
-    { full_name: 'BS. Vũ Đình Phúc', phone: '0908888885', password_hash: pw, cccd: '', role: 'doctor', doctor_specialty: 'Tai Mũi Họng', doctor_license: 'BYT-BS-2021-01455', doctor_online: 0 },
+    { full_name: 'BS. Nguyễn Văn Minh', phone: '0908888881', password_hash: pw, cccd: '', role: 'doctor', avatar_url: '/assets/doctors/dr-minh.jpg', doctor_specialty: 'Nội tổng quát', doctor_license: 'BYT-BS-2011-00567', doctor_online: 1 },
+    { full_name: 'BS. Trần Thị Thu Hà', phone: '0908888882', password_hash: pw, cccd: '', role: 'doctor', avatar_url: '/assets/doctors/dr-ha.jpg', doctor_specialty: 'Tai Mũi Họng', doctor_license: 'BYT-BS-2014-00231', doctor_online: 1 },
+    { full_name: 'BS. Lê Hoàng Sơn', phone: '0908888883', password_hash: pw, cccd: '', role: 'doctor', avatar_url: '/assets/doctors/dr-son.jpg', doctor_specialty: 'Da Liễu', doctor_license: 'BYT-BS-2016-00893', doctor_online: 0 },
+    { full_name: 'BS. Phạm Ngọc Anh', phone: '0908888884', password_hash: pw, cccd: '', role: 'doctor', avatar_url: '/assets/doctors/dr-anh.jpg', doctor_specialty: 'Nội tổng quát – Hô hấp', doctor_license: 'BYT-BS-2019-01120', doctor_online: 1 },
+    { full_name: 'BS. Vũ Đình Phúc', phone: '0908888885', password_hash: pw, cccd: '', role: 'doctor', avatar_url: '/assets/doctors/dr-phuc.jpg', doctor_specialty: 'Tai Mũi Họng', doctor_license: 'BYT-BS-2021-01455', doctor_online: 0 },
     { full_name: 'QL Nhà thuốc Minh Châu', phone: '0907777771', password_hash: pw, cccd: '', role: 'pharmacy', pharmacy_id: pharmacyIds[0] },
     { full_name: 'QL Nhà thuốc An Khang', phone: '0907777772', password_hash: pw, cccd: '', role: 'pharmacy', pharmacy_id: pharmacyIds[1] },
     { full_name: 'QL Nhà thuốc Thanh Đạt', phone: '0907777773', password_hash: pw, cccd: '', role: 'pharmacy', pharmacy_id: pharmacyIds[2] },
@@ -120,10 +120,10 @@ export async function seedDb(): Promise<void> {
   for (const u of users) {
     const r = await pool.query(
       `INSERT INTO users (full_name, phone, password_hash, cccd, role,
-       doctor_specialty, doctor_license, doctor_online, pharmacy_id, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+       avatar_url, doctor_specialty, doctor_license, doctor_online, pharmacy_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
       [u.full_name, u.phone, u.password_hash, u.cccd ?? '', u.role,
-        u.doctor_specialty ?? null, u.doctor_license ?? null, u.doctor_online ?? 0, u.pharmacy_id ?? null, daysAgo(90)]
+        u.avatar_url ?? '', u.doctor_specialty ?? null, u.doctor_license ?? null, u.doctor_online ?? 0, u.pharmacy_id ?? null, daysAgo(90)]
     )
     userIds.push(r.rows[0].id)
   }

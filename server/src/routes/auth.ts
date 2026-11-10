@@ -46,6 +46,10 @@ r.post('/login', async (req, res) => {
     if (role && user.role !== role) {
       return res.status(403).json({ error: `Tài khoản này không thuộc vai trò ${role}.` })
     }
+    if (user.role === 'doctor') {
+      await pool.query('UPDATE users SET doctor_online = 1 WHERE id = $1', [user.id])
+      user.doctor_online = 1
+    }
     const token = await createSession(user.id)
     res.json({ token, ...mePayload(user) })
   } catch (e) {
@@ -57,11 +61,32 @@ r.post('/login', async (req, res) => {
 r.get('/doctors', async (_req, res) => {
   try {
     await ensureDb()
+    const nowIso = new Date().toISOString()
     const { rows } = await pool.query(
-      `SELECT id, full_name, doctor_specialty, doctor_license, doctor_online
-       FROM users WHERE role = 'doctor' ORDER BY doctor_online DESC, full_name`
+      `SELECT u.id, u.full_name, u.doctor_specialty, u.doctor_license, u.doctor_online, u.avatar_url,
+        (SELECT ds.starts_at FROM doctor_slots ds
+          WHERE ds.doctor_id = u.id AND ds.status = 'open' AND ds.starts_at > $1
+            AND (SELECT COUNT(*)::int FROM consultations c2 WHERE c2.slot_id = ds.id AND c2.status != 'rejected') < ds.capacity
+          ORDER BY ds.starts_at LIMIT 1) AS next_slot_at
+       FROM users u WHERE u.role = 'doctor'
+       ORDER BY u.doctor_online DESC, u.full_name`,
+      [nowIso]
     )
-    res.json({ doctors: rows.map((d: any) => ({ ...d, doctor_online: !!d.doctor_online })) })
+    // Thời gian phản hồi trung bình từ 20 lượt đã xử lý gần nhất (phút)
+    const avgRow = (await pool.query(
+      `SELECT ROUND(AVG((EXTRACT(EPOCH FROM (decided_at::timestamp - created_at::timestamp)) / 60))::numeric, 1)::float AS m
+       FROM (SELECT decided_at, created_at FROM consultations
+             WHERE decided_at IS NOT NULL ORDER BY decided_at DESC LIMIT 20) t`
+    )).rows[0]
+    res.json({
+      avg_wait_minutes: avgRow?.m ?? null,
+      doctors: rows.map((d: any) => ({
+        ...d,
+        doctor_online: !!d.doctor_online,
+        verified: !!d.doctor_license,
+        avatar_url: d.avatar_url || '',
+      })),
+    })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
@@ -70,6 +95,9 @@ r.get('/doctors', async (_req, res) => {
 
 r.post('/logout', requireAuth, async (req, res) => {
   try {
+    if (req.user.role === 'doctor') {
+      await pool.query('UPDATE users SET doctor_online = 0 WHERE id = $1', [req.user.id])
+    }
     await pool.query('DELETE FROM sessions WHERE token = $1', [res.locals.token])
     res.json({ ok: true })
   } catch (e) {

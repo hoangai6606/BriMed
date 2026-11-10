@@ -35,6 +35,26 @@ async function attachNames(c: any) {
   }
 }
 
+// Khung giờ còn chỗ của một bác sĩ — cho bệnh nhân chọn khi đặt lịch
+r.get('/doctors/:id/slots', async (req, res) => {
+  try {
+    const doctor = (await pool.query(`SELECT id FROM users WHERE id = $1 AND role = 'doctor'`, [req.params.id])).rows[0]
+    if (!doctor) return res.status(404).json({ error: 'Không tìm thấy bác sĩ.' })
+    const { rows } = await pool.query(
+      `SELECT ds.*,
+        (SELECT COUNT(*)::int FROM consultations c WHERE c.slot_id = ds.id AND c.status != 'rejected') AS booked
+       FROM doctor_slots ds
+       WHERE ds.doctor_id = $1 AND ds.status = 'open' AND ds.starts_at > $2
+       ORDER BY ds.starts_at ASC LIMIT 20`,
+      [doctor.id, new Date().toISOString()]
+    )
+    res.json({ slots: rows })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 // ---------- Hồ sơ sức khỏe ----------
 r.get('/health-profile/me', async (req, res) => {
   try {
@@ -115,20 +135,59 @@ r.post('/consultations', async (req, res) => {
         guidance: 'Vui lòng đến khám trực tiếp tại cơ sở y tế gần nhất. Trường hợp khẩn cấp hãy gọi 115.',
       })
     }
+    // Bác sĩ chỉ định + đặt lịch khung giờ (tuỳ chọn nhưng nếu chọn bác sĩ thì bắt buộc có bác sĩ hợp lệ)
+    let preferredDoctor: any = null
+    if (b.preferred_doctor_id) {
+      preferredDoctor = (await pool.query(
+        `SELECT id, full_name, doctor_online FROM users WHERE id = $1 AND role = 'doctor'`,
+        [Number(b.preferred_doctor_id)]
+      )).rows[0]
+      if (!preferredDoctor) return res.status(400).json({ error: 'Bác sĩ bạn chọn không có trên hệ thống.' })
+    }
+    let slot: any = null
+    if (b.slot_id) {
+      if (!preferredDoctor) return res.status(400).json({ error: 'Vui lòng chọn bác sĩ trước khi đặt lịch.' })
+      slot = (await pool.query(
+        `SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2 AND status = 'open' AND starts_at > $3`,
+        [Number(b.slot_id), preferredDoctor.id, nowIso()]
+      )).rows[0]
+      if (!slot) return res.status(400).json({ error: 'Khung giờ này đã không còn khả dụng. Vui lòng chọn khung giờ khác.' })
+      const booked = (await pool.query(
+        `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status != 'rejected'`, [slot.id]
+      )).rows[0].c
+      if (booked >= slot.capacity) return res.status(409).json({ error: 'Khung giờ này đã đầy. Vui lòng chọn khung giờ khác.' })
+    }
     const { rows } = await pool.query(
       `INSERT INTO consultations (patient_id, disease_group, symptom, duration_days, fever, fever_days,
-       shortness_of_breath, is_child, pregnancy, drug_allergies, current_medicines, consent_share, red_flag, status, payment_status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,'pending','unpaid',$13) RETURNING id`,
+       shortness_of_breath, is_child, pregnancy, drug_allergies, current_medicines, consent_share, red_flag, status, payment_status,
+       preferred_doctor_id, slot_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,'pending','unpaid',$13,$14,$15) RETURNING id`,
       [req.user.id, b.disease_group, b.symptom, b.duration_days || 1, b.fever ? 1 : 0, b.fever_days || 0,
         b.shortness_of_breath ? 1 : 0, b.is_child ? 1 : 0, b.pregnancy ? 1 : 0,
-        b.drug_allergies || '', b.current_medicines || '', b.consent_share !== false ? 1 : 0, nowIso()]
+        b.drug_allergies || '', b.current_medicines || '', b.consent_share !== false ? 1 : 0,
+        preferredDoctor?.id ?? null, slot?.id ?? null, nowIso()]
     )
     await pool.query(
       'UPDATE health_profiles SET drug_allergies=$1, current_medicines=$2, pregnant=$3 WHERE user_id=$4',
       [b.drug_allergies || '', b.current_medicines || '', b.pregnancy ? 1 : 0, req.user.id]
     )
     const row = (await pool.query('SELECT * FROM consultations WHERE id = $1', [rows[0].id])).rows[0]
-    res.json({ consultation: await attachNames(row), payment: paymentInfo(rows[0].id) })
+    // Dự đoán giờ tới lượt: nếu đặt slot -> starts_at + (vị trí trong slot) * 8 phút/lượt
+    let estimated_turn_at: string | null = null
+    if (slot) {
+      const bookedIdx = (await pool.query(
+        `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status != 'rejected' AND id < $2`,
+        [slot.id, rows[0].id]
+      )).rows[0].c
+      estimated_turn_at = new Date(new Date(slot.starts_at).getTime() + bookedIdx * 8 * 60000).toISOString()
+    }
+    res.json({
+      consultation: await attachNames(row),
+      payment: paymentInfo(rows[0].id),
+      preferred_doctor: preferredDoctor ? { id: preferredDoctor.id, full_name: preferredDoctor.full_name, doctor_online: !!preferredDoctor.doctor_online } : null,
+      slot: slot ? { id: slot.id, starts_at: slot.starts_at, duration_min: slot.duration_min } : null,
+      estimated_turn_at,
+    })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
@@ -164,8 +223,30 @@ async function consultCode(id: number): Promise<string> {
 
 r.get('/consultations/mine', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM consultations WHERE patient_id = $1 ORDER BY created_at DESC', [req.user.id])
-    res.json({ consultations: await Promise.all(rows.map(attachNames)) })
+    const { rows } = await pool.query(
+      `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min,
+              d2.full_name AS preferred_doctor_name, d2.avatar_url AS preferred_doctor_avatar,
+              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status != 'rejected' AND c3.id < c.id) AS slot_position
+       FROM consultations c
+       LEFT JOIN doctor_slots ds ON ds.id = c.slot_id
+       LEFT JOIN users d2 ON d2.id = c.preferred_doctor_id
+       WHERE c.patient_id = $1 ORDER BY c.created_at DESC`,
+      [req.user.id]
+    )
+    const result = await Promise.all(rows.map(async (c: any) => {
+      const base = await attachNames(c)
+      let estimated_turn_at: string | null = null
+      if (c.slot_starts_at && c.status === 'pending') {
+        estimated_turn_at = new Date(new Date(c.slot_starts_at).getTime() + (c.slot_position || 0) * 8 * 60000).toISOString()
+      }
+      return {
+        ...base,
+        slot: c.slot_starts_at ? { starts_at: c.slot_starts_at, duration_min: c.slot_duration_min, position: c.slot_position || 0 } : null,
+        preferred_doctor: c.preferred_doctor_name ? { id: c.preferred_doctor_id, full_name: c.preferred_doctor_name, avatar_url: c.preferred_doctor_avatar } : null,
+        estimated_turn_at,
+      }
+    }))
+    res.json({ consultations: result })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })

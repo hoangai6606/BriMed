@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../../api/client'
 import { CUSTOMER_FAQ, ELIGIBLE, CUSTOMER_LEAD_NOTE } from '../../data/constants'
 import './landing.css'
 
@@ -58,6 +59,13 @@ function AmbientEffects() {
 function HeroCarousel() {
   const [activeSlide, setActiveSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [onlineCount, setOnlineCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    api('/auth/doctors').then((d) => {
+      setOnlineCount((d.doctors || []).filter((x: any) => x.doctor_online).length)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (isPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -162,7 +170,7 @@ function HeroCarousel() {
             <div className="carousel-metrics">
               <article><span>Phiên hôm nay</span><strong>24</strong><small>+18%</small></article>
               <article><span>Kết nối TB</span><strong>02:14</strong><small>phút</small></article>
-              <article className="metric-chart"><span>Bác sĩ trực tuyến</span><strong>08</strong><div>{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div></article>
+              <article className="metric-chart"><span>Bác sĩ trực tuyến</span><strong>{onlineCount != null ? String(onlineCount).padStart(2, '0') : '—'}</strong><div>{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div></article>
             </div>
             <button className="carousel-home-control light-control" type="button" onClick={() => setActiveSlide(0)}><Icon name="back" /> Về màn hình tư vấn</button>
           </div>
