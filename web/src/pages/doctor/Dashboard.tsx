@@ -52,7 +52,13 @@ export default function DoctorDashboard() {
   const removeSlot = async (id: number) => {
     try {
       const d = await api(`/doctor/slots/${id}`, { method: 'DELETE' })
-      toast(d.message || 'Đã xoá khung giờ.', 'success')
+      if (d.need_confirm) {
+        if (!window.confirm(d.error)) return
+        const d2 = await api(`/doctor/slots/${id}`, { method: 'DELETE', body: JSON.stringify({ confirm: true }) })
+        toast(d2.message || 'Đã huỷ khung giờ.', 'success')
+      } else {
+        toast(d.message || 'Đã xoá khung giờ.', 'success')
+      }
       loadSlots()
     } catch (e: any) { toast(e.message, 'error') }
   }

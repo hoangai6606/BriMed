@@ -48,7 +48,7 @@ export const STEPS_FLOW = [
   { title: 'Quét mã QR', desc: 'Tại quầy nhà thuốc đối tác' },
   { title: 'Điền form triệu chứng', desc: 'Vài câu hỏi sàng lọc nhanh' },
   { title: 'Bác sĩ gọi ngắn & kê đơn', desc: 'Gọi 1–2 phút, ký số đơn điện tử' },
-  { title: 'Nhận mã đơn', desc: 'Liên thông Hệ thống đơn thuốc quốc gia' },
+  { title: 'Nhận mã đơn', desc: 'Mã tra cứu quốc gia trên từng toa' },
   { title: 'Mua thuốc ngay tại quầy', desc: 'Tổng thời gian chờ ~6,5 phút' },
 ]
 

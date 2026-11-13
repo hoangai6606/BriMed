@@ -471,7 +471,7 @@ export default function Consultation() {
         <Video size={20} className="text-primary shrink-0 mt-0.5" />
         <p className="text-[13px] text-slate-600 leading-relaxed">
           Sau khi gửi, bác sĩ sẽ <strong>xem form và gọi ngắn 1–2 phút</strong> xác nhận triệu chứng trực tiếp với bạn tại quầy,
-          sau đó ký số đơn điện tử liên thông Hệ thống đơn thuốc quốc gia (TT 26/2025).
+          sau đó ký số đơn điện tử kèm mã tra cứu quốc gia (TT 26/2025).
           Phí khám <strong>25.000đ/lượt</strong> thanh toán qua VietQR ngay sau khi gửi.
         </p>
       </div>

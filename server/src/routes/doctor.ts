@@ -161,11 +161,19 @@ r.delete('/slots/:id', async (req, res) => {
     const slot = (await pool.query('SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2', [req.params.id, req.user.id])).rows[0]
     if (!slot) return res.status(404).json({ error: 'Không tìm thấy khung giờ.' })
     const booked = (await pool.query(
-      `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status != 'rejected'`, [slot.id]
+      `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status NOT IN ('rejected','cancelled')`, [slot.id]
     )).rows[0].c
     if (booked > 0) {
+      if (!req.body?.confirm) {
+        return res.status(409).json({
+          error: `Khung giờ này có ${booked} bệnh nhân đã đặt lịch. Xác nhận huỷ sẽ chuyển các lượt hẹn về hàng đợi thường (không mất phí, không mất chỗ trong hàng đợi).`,
+          need_confirm: true, booked,
+        })
+      }
       await pool.query(`UPDATE doctor_slots SET status = 'cancelled' WHERE id = $1`, [slot.id])
-      return res.json({ ok: true, message: `Khung giờ có ${booked} bệnh nhân đã đặt — đã chuyển sang trạng thái huỷ, các lượt sẽ về hàng đợi thường. Vui lòng thông báo cho bệnh nhân.` })
+      // Gỡ gắn slot khỏi các lượt đã đặt -> chúng về hàng đợi thường (walk-in ưu tiên theo chỉ định)
+      await pool.query(`UPDATE consultations SET slot_id = NULL WHERE slot_id = $1 AND status = 'pending'`, [slot.id])
+      return res.json({ ok: true, message: `Đã huỷ khung giờ và chuyển ${booked} lượt hẹn về hàng đợi thường. Hệ thống đã ghi nhận — bệnh nhân sẽ thấy cập nhật khi mở app.` })
     }
     await pool.query(`DELETE FROM doctor_slots WHERE id = $1`, [slot.id])
     res.json({ ok: true })
