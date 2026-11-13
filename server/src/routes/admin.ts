@@ -44,6 +44,12 @@ r.get('/stats', async (_req, res) => {
       `SELECT COALESCE(SUM(call_duration_sec),0)::int AS s FROM consultations WHERE call_started_at >= $1`, [monthStartIso]
     )).rows[0].s
 
+    // Ca đã trả phí nhưng chờ quá 15 phút chưa ai nhận (cảnh báo vận hành)
+    const stuck = (await pool.query(
+      `SELECT COUNT(*)::int AS c FROM consultations WHERE status = 'pending' AND payment_status = 'paid' AND created_at < $1`,
+      [new Date(Date.now() - 15 * 60000).toISOString()]
+    )).rows[0].c
+
     const patients = (await pool.query(`SELECT * FROM users WHERE role='patient'`)).rows
     // Tỷ lệ quay lại: bệnh nhân có từ 2 lượt khám trở lên / tổng bệnh nhân đã khám
     const patientsWithConsults = (await pool.query(`
@@ -67,6 +73,7 @@ r.get('/stats', async (_req, res) => {
         revenue_consultation_vnd: consultRevenue,
         doctor_fees_vnd: doctorFees,
         video_minutes_this_month: Math.round((videoSecMonth / 60) * 10) / 10,
+        stuck_over_15min: stuck,
         counts: {
           patients: patients.length,
           doctors: (await pool.query(`SELECT COUNT(*)::int AS c FROM users WHERE role='doctor'`)).rows[0].c,
@@ -104,8 +111,8 @@ r.put('/users/:id', async (req, res) => {
     if (!u) return res.status(404).json({ error: 'Không tìm thấy tài khoản.' })
     const b = req.body || {}
     await pool.query(
-      'UPDATE users SET doctor_online = $1 WHERE id = $2',
-      [b.doctor_online !== undefined ? (b.doctor_online ? 1 : 0) : u.doctor_online, u.id]
+      'UPDATE users SET doctor_online = $1, last_seen_at = CASE WHEN $1 = 1 THEN $2 ELSE last_seen_at END WHERE id = $3',
+      [b.doctor_online !== undefined ? (b.doctor_online ? 1 : 0) : u.doctor_online, nowIso(), u.id]
     )
     res.json({ ok: true })
   } catch (e) {
@@ -198,6 +205,77 @@ r.put('/patient-leads/:id', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'Không tìm thấy khách hàng quan tâm.' })
     await pool.query('UPDATE patient_leads SET status = $1 WHERE id = $2', [req.body?.status || row.status, req.params.id])
     res.json({ ok: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// Duyệt đăng ký đối tác -> tự tạo nhà thuốc + tài khoản quản lý (onboarding khép kín)
+r.post('/registrations/:id/provision', async (req, res) => {
+  try {
+    await ensureDb()
+    const reg = (await pool.query('SELECT * FROM partner_registrations WHERE id = $1', [req.params.id])).rows[0]
+    if (!reg) return res.status(404).json({ error: 'Không tìm thấy đăng ký.' })
+    if (reg.status === 'converted') return res.status(400).json({ error: 'Đăng ký này đã được duyệt và tạo tài khoản.' })
+
+    const dup = (await pool.query('SELECT id FROM users WHERE phone = $1', [reg.phone])).rows[0]
+    if (dup) return res.status(409).json({ error: `Số điện thoại ${reg.phone} đã có tài khoản trên hệ thống.` })
+
+    const ph = (await pool.query(
+      `INSERT INTO pharmacies (name, address, ward, district, owner_name, phone, license_number, pharmacist_name, csdl_synced, subscription_plan, subscription_started_at, standee_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [reg.pharmacy_name, reg.address, reg.ward, reg.district, reg.owner_name, reg.phone,
+        reg.license_number, reg.pharmacist_name, reg.csdl_synced ? 1 : 0, reg.plan || '1_month',
+        nowIso(), 'BR-GV-' + String(Math.floor(100 + Math.random() * 900))]
+    )).rows[0]
+
+    const password = 'brimed@' + String(Math.floor(1000 + Math.random() * 9000))
+    const { sha256 } = await import('../auth.js')
+    const user = (await pool.query(
+      `INSERT INTO users (full_name, phone, password_hash, role, pharmacy_id, created_at)
+       VALUES ($1,$2,$3,'pharmacy',$4,$5) RETURNING id`,
+      ['QL ' + reg.pharmacy_name, reg.phone, sha256(password), ph.id, nowIso()]
+    )).rows[0]
+
+    await pool.query('UPDATE partner_registrations SET status = $1 WHERE id = $2', ['converted', reg.id])
+    res.json({
+      ok: true,
+      pharmacy_id: ph.id,
+      account: { phone: reg.phone, password, note: 'Mật khẩu hiển thị một lần — chuyển giao cho nhà thuốc và yêu cầu đổi sau khi đăng nhập đầu tiên.' },
+      message: `Đã tạo nhà thuốc "${reg.pharmacy_name}" và tài khoản quản lý ${reg.phone}.`,
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// Chốt phí thuê bao tháng hiện tại cho toàn bộ nhà thuốc (500k tháng 1-6, 900k từ tháng 7)
+r.post('/bill-subscriptions', async (_req, res) => {
+  try {
+    await ensureDb()
+    const now = new Date()
+    const monthTag = `T${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const pharmacies = (await pool.query('SELECT * FROM pharmacies ORDER BY name')).rows
+    const results: any[] = []
+    for (const p of pharmacies) {
+      if (!p.subscription_started_at) continue
+      const monthsActive = (now.getTime() - new Date(p.subscription_started_at).getTime()) / (30.44 * 86400000)
+      const price = monthsActive < 6 ? 500000 : 900000
+      const dup = (await pool.query(
+        `SELECT id FROM transactions WHERE type = 'b2b_subscription' AND description LIKE '%' || $1 || '%' AND description LIKE '%' || $2 || '%'`,
+        [monthTag, p.name]
+      )).rows[0]
+      if (dup) { results.push({ pharmacy: p.name, status: 'already', monthTag }); continue }
+      await pool.query(
+        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, created_at)
+         VALUES (NULL, 'b2b_subscription', 0, $1, $2, $3)`,
+        [price, `Phí nhà thuốc ${monthTag} – ${p.name} (${price === 500000 ? '6 tháng đầu' : 'ổn định'})`, nowIso()]
+      )
+      results.push({ pharmacy: p.name, status: 'billed', amount: price, monthTag })
+    }
+    res.json({ ok: true, month: monthTag, results })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })

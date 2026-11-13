@@ -84,6 +84,26 @@ export default function AdminDashboard() {
 
   const updateReg = async (r: any, status: string) => {
     await api(`/admin/partner-registrations/${r.id}`, { method: 'PUT', body: JSON.stringify({ status }) }).catch(() => {})
+  }
+
+  const billSubscriptions = async () => {
+    if (!window.confirm('Chốt phí thuê bao tháng hiện tại cho toàn bộ nhà thuốc đang hoạt động (500.000đ 6 tháng đầu / 900.000đ sau đó)?')) return
+    try {
+      const d = await api('/admin/bill-subscriptions', { method: 'POST' })
+      const billed = d.results.filter((x: any) => x.status === 'billed')
+      const skipped = d.results.length - billed.length
+      toast(`Đã chốt ${billed.length} nhà thuốc (${d.month})${skipped ? `, bỏ qua ${skipped} đã chốt` : ''}.`, 'success')
+      load()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
+
+  const provision = async (r: any) => {
+    if (!window.confirm(`Duyệt "${r.pharmacy_name}" và tự tạo nhà thuốc + tài khoản quản lý ${r.phone}?`)) return
+    try {
+      const d = await api(`/admin/registrations/${r.id}/provision`, { method: 'POST' })
+      toast(`${d.message} Mật khẩu: ${d.account.password}`, 'success')
+      load()
+    } catch (e: any) { toast(e.message, 'error') }
     toast(`Đã chuyển đăng ký "${r.pharmacy_name}" sang ${status === 'contacted' ? 'đã liên hệ' : 'đã ký gói'}.`, 'success')
     load()
   }
@@ -126,6 +146,9 @@ export default function AdminDashboard() {
 
       {tab === 'kpi' && (
         <>
+          <div className="flex justify-end">
+            <button onClick={billSubscriptions} className="btn-primary !min-h-[38px] !px-3.5 !text-[12.5px] mb-1">Chốt phí thuê bao tháng này</button>
+          </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard icon={<FileCheck2 size={18} />} label="Toa phát hành tháng này" value={kpi.prescriptions_this_month} tone="blue" />
             <KpiCard
@@ -148,6 +171,9 @@ export default function AdminDashboard() {
             <KpiCard icon={<Coins size={18} />} label="Doanh thu phí khám" value={fmtVnd(kpi.revenue_consultation_vnd)} tone="pink" />
             <KpiCard icon={<Users size={18} />} label="Bác sĩ trực / tổng" value={`${kpi.counts.doctors_online}/${kpi.counts.doctors}`} tone="blue" />
             <KpiCard icon={<Video size={18} />} label="Phút gọi video (tháng)" value={`${kpi.video_minutes_this_month ?? 0} phút`} sub="gói miễn phí 10.000 phút/tháng" tone="blue" />
+            {(kpi.stuck_over_15min ?? 0) > 0 && (
+              <KpiCard icon={<AlertTriangle size={18} />} label="⚠ Ca chờ quá 15 phút" value={`${kpi.stuck_over_15min} ca`} sub="đã trả phí, chưa bác sĩ nào nhận — cần xử lý ngay" tone="red" />
+            )}
           </div>
 
           {abOver && (
@@ -339,12 +365,18 @@ export default function AdminDashboard() {
                       {r.status === 'new' ? 'Mới' : r.status === 'contacted' ? 'Đã liên hệ' : 'Đã ký gói'}
                     </span>
                   </div>
-                  {r.status === 'new' && (
-                    <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {r.status !== 'converted' && r.status !== 'signed' && (
                       <button onClick={() => updateReg(r, 'contacted')} className="btn-ghost !min-h-[34px] !px-3 !text-[12.5px]">Đánh dấu đã liên hệ</button>
-                      <button onClick={() => updateReg(r, 'signed')} className="btn-primary !min-h-[34px] !px-3 !text-[12.5px]">Đã ký gói</button>
-                    </div>
-                  )}
+                    )}
+                    {r.status !== 'converted' && (
+                      <button onClick={() => updateReg(r, 'signed')} className="btn-ghost !min-h-[34px] !px-3 !text-[12.5px]">Đã ký gói</button>
+                    )}
+                    {r.status !== 'converted' && (
+                      <button onClick={() => provision(r)} className="btn-pink !min-h-[34px] !px-3 !text-[12.5px]">Duyệt &amp; tạo tài khoản</button>
+                    )}
+                    {r.status === 'converted' && <span className="badge bg-mint-bg text-mint-fg">Đã tạo tài khoản nhà thuốc</span>}
+                  </div>
                 </li>
               ))}
             </ul>

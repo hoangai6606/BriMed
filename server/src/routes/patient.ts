@@ -135,25 +135,34 @@ r.post('/consultations', async (req, res) => {
         guidance: 'Vui lòng đến khám trực tiếp tại cơ sở y tế gần nhất. Trường hợp khẩn cấp hãy gọi 115.',
       })
     }
-    // Bác sĩ chỉ định + đặt lịch khung giờ (tuỳ chọn nhưng nếu chọn bác sĩ thì bắt buộc có bác sĩ hợp lệ)
+    // P0-3: bắt buộc chọn bác sĩ; phải đang trực tuyến HOẶC có khung giờ đặt trước
     let preferredDoctor: any = null
-    if (b.preferred_doctor_id) {
-      preferredDoctor = (await pool.query(
-        `SELECT id, full_name, doctor_online FROM users WHERE id = $1 AND role = 'doctor'`,
-        [Number(b.preferred_doctor_id)]
-      )).rows[0]
-      if (!preferredDoctor) return res.status(400).json({ error: 'Bác sĩ bạn chọn không có trên hệ thống.' })
+    if (!b.preferred_doctor_id) {
+      return res.status(400).json({ error: 'Vui lòng chọn bác sĩ trước khi gửi yêu cầu tư vấn.' })
+    }
+    preferredDoctor = (await pool.query(
+      `SELECT id, full_name, doctor_online, last_seen_at FROM users WHERE id = $1 AND role = 'doctor'`,
+      [Number(b.preferred_doctor_id)]
+    )).rows[0]
+    if (!preferredDoctor) return res.status(400).json({ error: 'Bác sĩ bạn chọn không có trên hệ thống.' })
+    const doctorOnline = !!preferredDoctor.doctor_online && preferredDoctor.last_seen_at
+      && (Date.now() - new Date(preferredDoctor.last_seen_at).getTime() < 10 * 60000)
+    if (!doctorOnline && !b.slot_id) {
+      return res.status(409).json({ error: 'Bác sĩ hiện không trực tuyến. Vui lòng đặt lịch theo khung giờ của bác sĩ, hoặc chọn bác sĩ đang trực tuyến.' })
     }
     let slot: any = null
     if (b.slot_id) {
-      if (!preferredDoctor) return res.status(400).json({ error: 'Vui lòng chọn bác sĩ trước khi đặt lịch.' })
       slot = (await pool.query(
         `SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2 AND status = 'open' AND starts_at > $3`,
         [Number(b.slot_id), preferredDoctor.id, nowIso()]
       )).rows[0]
       if (!slot) return res.status(400).json({ error: 'Khung giờ này đã không còn khả dụng. Vui lòng chọn khung giờ khác.' })
+      // P0-2: ghế chỉ bị giữ 15 phút cho lượt chưa trả tiền
       const booked = (await pool.query(
-        `SELECT COUNT(*)::int AS c FROM consultations WHERE slot_id = $1 AND status != 'rejected'`, [slot.id]
+        `SELECT COUNT(*)::int AS c FROM consultations
+         WHERE slot_id = $1 AND status NOT IN ('rejected','cancelled')
+           AND (payment_status = 'paid' OR created_at > $2)`,
+        [slot.id, new Date(Date.now() - 15 * 60000).toISOString()]
       )).rows[0].c
       if (booked >= slot.capacity) return res.status(409).json({ error: 'Khung giờ này đã đầy. Vui lòng chọn khung giờ khác.' })
     }
@@ -194,6 +203,29 @@ r.post('/consultations', async (req, res) => {
   }
 })
 
+// Huỷ yêu cầu tư vấn / lịch hẹn (trước khi bác sĩ xử lý) — tự hoàn 25.000đ nếu đã trả
+r.delete('/consultations/:id', async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT * FROM consultations WHERE id = $1 AND patient_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
+    if (c.status !== 'pending') return res.status(400).json({ error: 'Chỉ có thể huỷ yêu cầu đang chờ bác sĩ xử lý.' })
+    await pool.query(`UPDATE consultations SET status = 'cancelled' WHERE id = $1`, [c.id])
+    if (c.payment_status === 'paid') {
+      await pool.query(`UPDATE consultations SET payment_status = 'refunded' WHERE id = $1`, [c.id])
+      await pool.query(
+        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+         VALUES ($1, 'consultation_refund', 0, $2, $3, $4, $5)`,
+        [req.user.id, -CONSULT_FEE_VND, `Hoàn phí khám do bệnh nhân huỷ lượt (${await consultCode(c.id)})`, c.id, nowIso()]
+      )
+      return res.json({ ok: true, refunded: true, message: 'Đã huỷ yêu cầu và hoàn 25.000đ phí khám về ví của bạn.' })
+    }
+    res.json({ ok: true, refunded: false, message: 'Đã huỷ yêu cầu tư vấn.' })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 // Xác nhận thanh toán phí khám qua VietQR
 r.post('/consultations/:id/pay', async (req, res) => {
   try {
@@ -201,6 +233,19 @@ r.post('/consultations/:id/pay', async (req, res) => {
     if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
     if (c.payment_status === 'paid') {
       return res.json({ ok: true, consultation: await attachNames(c), message: 'Yêu cầu này đã được thanh toán.' })
+    }
+    // P0-2: lượt đặt lịch quá 15 phút chưa trả -> ghế đã giải phóng, yêu cầu đặt lại
+    if (c.slot_id) {
+      const stillHeld = (await pool.query(
+        `SELECT COUNT(*)::int AS c FROM consultations
+         WHERE slot_id = $1 AND id = $2 AND status NOT IN ('rejected','cancelled')
+           AND (payment_status = 'paid' OR created_at > $3)`,
+        [c.slot_id, c.id, new Date(Date.now() - 15 * 60000).toISOString()]
+      )).rows[0].c
+      if (!stillHeld) {
+        await pool.query(`UPDATE consultations SET status = 'cancelled' WHERE id = $1`, [c.id])
+        return res.status(409).json({ error: 'Ghế đặt lịch đã hết hạn do quá 15 phút chưa thanh toán. Vui lòng đặt lại khung giờ.' })
+      }
     }
     await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = $1 WHERE id = $2`, [nowIso(), c.id])
     await pool.query(
@@ -224,7 +269,7 @@ async function consultCode(id: number): Promise<string> {
 r.get('/consultations/mine', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min,
+      `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min, ds.ack AS slot_ack,
               d2.full_name AS preferred_doctor_name, d2.avatar_url AS preferred_doctor_avatar,
               (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status != 'rejected' AND c3.id < c.id) AS slot_position
        FROM consultations c
@@ -241,7 +286,7 @@ r.get('/consultations/mine', async (req, res) => {
       }
       return {
         ...base,
-        slot: c.slot_starts_at ? { starts_at: c.slot_starts_at, duration_min: c.slot_duration_min, position: c.slot_position || 0 } : null,
+        slot: c.slot_starts_at ? { starts_at: c.slot_starts_at, duration_min: c.slot_duration_min, position: c.slot_position || 0, ack: !!c.slot_ack } : null,
         preferred_doctor: c.preferred_doctor_name ? { id: c.preferred_doctor_id, full_name: c.preferred_doctor_name, avatar_url: c.preferred_doctor_avatar } : null,
         estimated_turn_at,
       }
@@ -292,16 +337,56 @@ r.post('/prescriptions/:id/purchase', async (req, res) => {
       const unit = inv?.sell_price ?? 0
       items.push({ ...it, unit_price: unit, line_total: unit * it.quantity })
     }
+    const receiveMethod = req.body?.receive_method === 'delivery' ? 'delivery' : 'pickup'
+    const deliveryAddress = receiveMethod === 'delivery' ? String(req.body?.delivery_address || '').trim() : ''
+    if (receiveMethod === 'delivery' && !deliveryAddress) {
+      return res.status(400).json({ error: 'Vui lòng nhập địa chỉ giao hàng.' })
+    }
     const ins = await pool.query(
-      `INSERT INTO orders (prescription_id, patient_id, pharmacy_id, items, receive_method,
-       tokens_charged, is_free, status, created_at, updated_at) VALUES ($1,$2,$3,$4,'pickup',0,0,'confirmed',$5,$6) RETURNING id`,
-      [rx.id, req.user.id, pharmacy.id, JSON.stringify(items), t, t]
+      `INSERT INTO orders (prescription_id, patient_id, pharmacy_id, items, receive_method, delivery_address,
+       tokens_charged, is_free, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,0,0,'confirmed',$7,$8) RETURNING id`,
+      [rx.id, req.user.id, pharmacy.id, JSON.stringify(items), receiveMethod, deliveryAddress, t, t]
     )
     const order = (await pool.query('SELECT * FROM orders WHERE id = $1', [ins.rows[0].id])).rows[0]
     res.json({
       order,
       message: `Đã gửi đơn đến ${pharmacy.name}. Đến quầy, bạn cung cấp mã đơn ${rx.national_code} và trả tiền thuốc theo báo giá của quầy.`,
     })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// Đề xuất nhà thuốc theo tồn kho + giá cho một đơn thuốc
+r.get('/prescriptions/:id/recommend', async (req, res) => {
+  try {
+    const rx = (await pool.query('SELECT * FROM prescriptions WHERE id = $1 AND patient_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!rx) return res.status(404).json({ error: 'Không tìm thấy đơn thuốc.' })
+    const items = JSON.parse(rx.items || '[]')
+    if (!items.length) return res.json({ recommendations: [] })
+    const pharmacies = (await pool.query('SELECT * FROM pharmacies ORDER BY name')).rows
+    const recs = []
+    for (const p of pharmacies) {
+      let inStock = 0, fullQty = 0, total = 0
+      for (const it of items) {
+        const inv = (await pool.query(
+          'SELECT sell_price, stock FROM inventory WHERE pharmacy_id = $1 AND medicine_id = $2', [p.id, it.medicine_id]
+        )).rows[0]
+        if (inv && inv.stock > 0) {
+          inStock += 1
+          total += (inv.sell_price || 0) * it.quantity
+          if (inv.stock >= it.quantity) fullQty += 1
+        }
+      }
+      recs.push({
+        pharmacy_id: p.id, name: p.name, address: p.address, ward: p.ward,
+        items_total: items.length, items_in_stock: inStock, items_full_qty: fullQty,
+        estimated_total: total, all_in_stock: fullQty === items.length,
+      })
+    }
+    recs.sort((a: any, b: any) => (b.all_in_stock - a.all_in_stock) || (b.items_full_qty - a.items_full_qty) || (a.estimated_total - b.estimated_total))
+    res.json({ recommendations: recs })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
@@ -315,6 +400,7 @@ r.get('/orders/mine', async (req, res) => {
     const result = await Promise.all(rows.map(async (o: any) => ({
       ...o,
       items: JSON.parse(o.items || '[]'), quote: o.quote ? JSON.parse(o.quote) : null,
+      receive_method: o.receive_method, delivery_address: o.delivery_address || '',
       pharmacy_name: (await pool.query('SELECT name FROM pharmacies WHERE id = $1', [o.pharmacy_id])).rows[0]?.name,
       prescription_code: (await pool.query('SELECT national_code FROM prescriptions WHERE id = $1', [o.prescription_id])).rows[0]?.national_code,
     })))

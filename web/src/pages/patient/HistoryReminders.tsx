@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BellRing, History, Plus, Trash2, RefreshCcw, Sun, Sunset, Moon } from 'lucide-react'
+import { BellRing, History, Plus, Trash2, RefreshCcw, Sun, Sunset, Moon, Printer } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { api, fmtDate } from '../../api/client'
 import { Modal } from '../../components/common/Misc'
@@ -54,6 +54,9 @@ export default function HistoryReminders() {
     <div className="space-y-4 max-w-2xl">
       <SeoMeta title="Lịch sử điều trị & nhắc uống thuốc – BriMed" />
       <h1 className="text-[20px] font-extrabold text-bluedark">Lịch sử & nhắc uống thuốc</h1>
+      <button onClick={() => window.print()} className="btn-outline !min-h-[36px] !px-3 !text-[12.5px] mb-2 print:hidden">
+        <Printer size={15} /> In / Lưu PDF lịch sử khám
+      </button>
 
       {/* Nhắc uống thuốc */}
       <section className="card p-4">

@@ -10,9 +10,10 @@ import { useUi } from '../../store/ui'
 // Giới hạn 7 phút/lượt — hết giờ tự ngắt kết thúc.
 const MAX_SEC = 420
 
-export function VideoCallRoom({ consultationId, role, onEnded }: {
+export function VideoCallRoom({ consultationId, role, peerName, onEnded }: {
   consultationId: number | string
   role: 'doctor' | 'patient'
+  peerName?: string
   onEnded?: (sec: number, note: string) => void
 }) {
   const toast = useUi((s) => s.toast)
@@ -80,7 +81,7 @@ export function VideoCallRoom({ consultationId, role, onEnded }: {
       {/* Thanh trạng thái */}
       <div className="flex items-center justify-between gap-2 bg-bluedark text-white px-4 py-2.5">
         <span className="flex items-center gap-2 text-[13px] font-bold">
-          <Video size={16} /> {role === 'doctor' ? 'Đang gọi video bệnh nhân' : 'Đang gọi video với bác sĩ'}
+          <Video size={16} /> {role === 'doctor' ? 'Đang gọi video bệnh nhân' : `Đang gọi video${peerName ? ' với ' + peerName : ' với bác sĩ'}`}
         </span>
         <span className="flex items-center gap-2 font-mono text-[15px] font-extrabold">
           <span className={remain <= 60 ? 'text-red-300' : 'text-white'}>{mmss}</span>

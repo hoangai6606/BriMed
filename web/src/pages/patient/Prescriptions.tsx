@@ -8,18 +8,32 @@ import { useUi } from '../../store/ui'
 
 export default function MyPrescriptions() {
   const [rxs, setRxs] = useState<any[] | null>(null)
-  const [pharmacies, setPharmacies] = useState<any[]>([])
+  const [recommend, setRecommend] = useState<any[]>([])
   const [buying, setBuying] = useState<any | null>(null)
   const [choosePharmacy, setChoosePharmacy] = useState<number | ''>('')
+  const [receiveMethod, setReceiveMethod] = useState<'pickup' | 'delivery'>('pickup')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const toast = useUi((s) => s.toast)
 
   const load = () => api('/patient/prescriptions/mine').then((d) => setRxs(d.prescriptions)).catch(() => setRxs([]))
-  useEffect(() => {
-    load()
-    api('/catalog/pharmacies').then((d) => { setPharmacies(d.pharmacies); if (d.pharmacies[0]) setChoosePharmacy(d.pharmacies[0].id) }).catch(() => {})
-  }, [])
+  useEffect(() => { load() }, [])
+
+  const openBuying = (rx: any) => {
+    setBuying(rx)
+    setReceiveMethod('pickup')
+    setDeliveryAddress('')
+    setRecommend([])
+    api(`/patient/prescriptions/${rx.id}/recommend`)
+      .then((d) => {
+        const recs = d.recommendations || []
+        setRecommend(recs)
+        const best = recs.find((x: any) => x.all_in_stock) || recs[0]
+        if (best) setChoosePharmacy(best.pharmacy_id)
+      })
+      .catch(() => {})
+  }
 
   if (!rxs) return <PageLoading />
 
@@ -29,7 +43,7 @@ export default function MyPrescriptions() {
     try {
       const d = await api(`/patient/prescriptions/${buying.id}/purchase`, {
         method: 'POST',
-        body: JSON.stringify({ pharmacy_id: choosePharmacy }),
+        body: JSON.stringify({ pharmacy_id: choosePharmacy, receive_method: receiveMethod, delivery_address: deliveryAddress }),
       })
       toast(d.message, 'success')
       setBuying(null)
@@ -110,7 +124,7 @@ export default function MyPrescriptions() {
 
             {canBuy && (
               <div className="mt-3">
-                <button onClick={() => setBuying(rx)} className="btn-primary w-full !text-[13px] !px-2">
+                <button onClick={() => openBuying(rx)} className="btn-primary w-full !text-[13px] !px-2">
                   <Store size={16} /> Gửi đơn đến quầy nhà thuốc
                 </button>
                 <p className="mt-1.5 text-[11.5px] text-slate-400 flex items-center gap-1">
@@ -135,14 +149,38 @@ export default function MyPrescriptions() {
               dược sĩ đối chiếu và bán thuốc theo giá niêm yết của quầy.
             </p>
             <div>
-              <label className="label" htmlFor="rx-pharmacy">Nhà thuốc (Gò Vấp)</label>
-              <select id="rx-pharmacy" className="input" value={choosePharmacy} onChange={(e) => setChoosePharmacy(Number(e.target.value))}>
-                {pharmacies.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {p.address}, {p.ward}</option>
-                ))}
-              </select>
+              <label className="label">Nhà thuốc (Gò Vấp) — ★ là đề xuất theo tồn kho &amp; giá</label>
+              {recommend.length === 0 ? (
+                <p className="text-[13px] text-slate-400 py-1">Đang phân tích tồn kho các nhà thuốc…</p>
+              ) : (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                  {recommend.map((r: any, idx: number) => (
+                    <label key={r.pharmacy_id} className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 cursor-pointer transition ${choosePharmacy === r.pharmacy_id ? 'border-primary bg-lightblue/30' : 'border-slate-200 hover:border-primary/40'}`}>
+                      <span className="flex items-start gap-2 min-w-0">
+                        <input type="radio" name="pharmacy" className="accent-[#0d71e2] mt-1" checked={choosePharmacy === r.pharmacy_id} onChange={() => setChoosePharmacy(r.pharmacy_id)} />
+                        <span className="text-[13px] min-w-0">
+                          <span className="font-bold text-slate-700">{idx === 0 ? '★ ' : ''}{r.name}</span>
+                          <span className={`block text-[11.5px] ${r.all_in_stock ? 'text-primary font-semibold' : 'text-amber-600'}`}>
+                            {r.all_in_stock ? `Đủ ${r.items_in_stock}/${r.items_total} thuốc · ~${new Intl.NumberFormat('vi-VN').format(r.estimated_total)}đ` : `Thiếu ${r.items_total - r.items_in_stock}/${r.items_total} thuốc`}
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
-            <button onClick={buyAtCounter} disabled={busy || !choosePharmacy} className="btn-pink w-full">
+            <div>
+              <span className="label">Cách nhận thuốc</span>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setReceiveMethod('pickup')} className={`btn flex-1 !min-h-[42px] ${receiveMethod === 'pickup' ? 'bg-primary text-white' : 'bg-white border-2 border-slate-200 text-slate-500'}`}>Nhận tại quầy</button>
+                <button type="button" onClick={() => setReceiveMethod('delivery')} className={`btn flex-1 !min-h-[42px] ${receiveMethod === 'delivery' ? 'bg-primary text-white' : 'bg-white border-2 border-slate-200 text-slate-500'}`}>Giao tận nhà</button>
+              </div>
+              {receiveMethod === 'delivery' && (
+                <input className="input mt-2" placeholder="Địa chỉ giao hàng (số nhà, đường, phường…) *" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+              )}
+            </div>
+            <button onClick={buyAtCounter} disabled={busy || !choosePharmacy || (receiveMethod === 'delivery' && !deliveryAddress.trim())} className="btn-pink w-full">
               {busy ? 'Đang xử lý…' : 'Xác nhận gửi đến nhà thuốc'}
             </button>
           </div>

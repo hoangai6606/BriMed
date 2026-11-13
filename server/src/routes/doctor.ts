@@ -42,26 +42,39 @@ async function payDoctorFee(doctorId: number, consultationId: number, nationalCo
 }
 
 // ---------- Hàng đợi ----------
-// Hàng đợi: lượt hẹn giờ (slot) theo giờ hẹn tăng dần -> lượt chỉ định tôi -> walk-in FIFO
+// Hàng đợi: lượt hẹn ĐÃ ĐẾN GIỜ (+10 phút đệm) ưu tiên trước -> lượt chỉ định tôi -> walk-in FIFO.
+// Lượt hẹn tương lai tách nhóm upcoming riêng để không chặn hàng đợi hiện tại.
 r.get('/queue', async (req, res) => {
   try {
+    const nowIso = new Date().toISOString()
+    await pool.query('UPDATE users SET last_seen_at = $1 WHERE id = $2', [nowIso, req.user.id])
+    const soonIso = new Date(Date.now() + 10 * 60000).toISOString()
     const pending = (await pool.query(
       `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min,
               (c.preferred_doctor_id = $1) AS for_me,
-              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status != 'rejected' AND c3.id < c.id) AS slot_position
+              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status NOT IN ('rejected','cancelled') AND c3.id < c.id) AS slot_position
        FROM consultations c
        LEFT JOIN doctor_slots ds ON ds.id = c.slot_id
        WHERE c.status = 'pending' AND c.payment_status = 'paid'
-         AND (c.slot_id IS NULL OR ds.status = 'open')
+         AND (c.slot_id IS NULL OR (ds.status = 'open' AND ds.starts_at <= $2))
        ORDER BY (c.slot_id IS NOT NULL) DESC, ds.starts_at ASC NULLS LAST,
                 (c.preferred_doctor_id = $1) DESC, c.created_at ASC`,
-      [req.user.id]
+      [req.user.id, soonIso]
+    )).rows
+    const upcoming = (await pool.query(
+      `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min, ds.ack AS slot_ack,
+              (c.preferred_doctor_id = $1) AS for_me
+       FROM consultations c
+       JOIN doctor_slots ds ON ds.id = c.slot_id
+       WHERE c.status = 'pending' AND c.payment_status = 'paid' AND ds.status = 'open' AND ds.starts_at > $2
+       ORDER BY ds.starts_at ASC LIMIT 20`,
+      [req.user.id, soonIso]
     )).rows
     const mine = (await pool.query(
       `SELECT * FROM consultations WHERE doctor_id = $1 AND status IN ('in_call','approved','rejected') ORDER BY created_at DESC LIMIT 20`,
       [req.user.id]
     )).rows
-    res.json({ queue: await Promise.all(pending.map(attachNames)), mine: await Promise.all(mine.map(attachNames)) })
+    res.json({ queue: await Promise.all(pending.map(attachNames)), upcoming: await Promise.all(upcoming.map(attachNames)), mine: await Promise.all(mine.map(attachNames)) })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
@@ -80,6 +93,42 @@ r.get('/slots', async (req, res) => {
       [req.user.id, new Date().toISOString()]
     )
     res.json({ slots: rows })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// Xác nhận lịch hẹn (bác sĩ đã biết và sẽ có mặt)
+r.post('/slots/:id/ack', async (req, res) => {
+  try {
+    const slot = (await pool.query('SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2', [req.params.id, req.user.id])).rows[0]
+    if (!slot) return res.status(404).json({ error: 'Không tìm thấy khung giờ.' })
+    await pool.query('UPDATE doctor_slots SET ack = 1 WHERE id = $1', [slot.id])
+    res.json({ ok: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// P1-7: Thù lao của bác sĩ
+r.get('/earnings', async (req, res) => {
+  try {
+    const total = (await pool.query(
+      `SELECT COALESCE(SUM(amount_vnd),0)::int AS v, COUNT(*)::int AS c FROM transactions WHERE user_id = $1 AND type = 'doctor_fee'`,
+      [req.user.id]
+    )).rows[0]
+    const monthStart = new Date(); monthStart.setDate(1)
+    const month = (await pool.query(
+      `SELECT COALESCE(SUM(amount_vnd),0)::int AS v, COUNT(*)::int AS c FROM transactions WHERE user_id = $1 AND type = 'doctor_fee' AND created_at >= $2`,
+      [req.user.id, monthStart.toISOString()]
+    )).rows[0]
+    const list = (await pool.query(
+      `SELECT amount_vnd, description, created_at FROM transactions WHERE user_id = $1 AND type = 'doctor_fee' ORDER BY created_at DESC LIMIT 20`,
+      [req.user.id]
+    )).rows
+    res.json({ total_vnd: total.v, total_count: total.c, month_vnd: month.v, month_count: month.c, recent: list })
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
@@ -323,6 +372,16 @@ r.post('/prescriptions', async (req, res) => {
       await payDoctorFee(req.user.id, consultation.id, code)
     }
     const rx = (await pool.query('SELECT * FROM prescriptions WHERE id = $1', [ins.rows[0].id])).rows[0]
+
+    // Tự sinh nhắc uống thuốc cho bệnh nhân (Sáng/Trưa/Tối) — bệnh nhân sửa/xoá được sau này
+    for (const m of meds) {
+      await pool.query(
+        `INSERT INTO reminders (patient_id, prescription_id, medicine_name, times, note, active, created_at)
+         VALUES ($1,$2,$3,$4,$5,1,$6)`,
+        [patientId, rx.id, m.name, JSON.stringify(['Sáng', 'Trưa', 'Tối']), `${m.dosage} · ${m.usage} · ${m.duration_days} ngày`, t]
+      )
+    }
+
     res.json({ prescription: await rxWithNames(rx) })
   } catch (e) {
     console.error(e)

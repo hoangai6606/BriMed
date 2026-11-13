@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
   doctor_specialty TEXT,
   doctor_license TEXT,
   doctor_online INTEGER NOT NULL DEFAULT 0,
+  last_seen_at TEXT DEFAULT '',
   avatar_url TEXT DEFAULT '',
   pharmacy_id INTEGER,
   created_at TEXT NOT NULL
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS doctor_slots (
   duration_min INTEGER NOT NULL DEFAULT 30,
   capacity INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','cancelled')),
+  ack INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 
@@ -247,6 +249,13 @@ export function ensureDb(): Promise<void> {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`)
       await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_doctor_id INTEGER`)
       await pool.query(`ALTER TABLE consultations ADD COLUMN IF NOT EXISTS slot_id INTEGER`)
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TEXT DEFAULT ''`)
+      await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT DEFAULT ''`)
+      await pool.query(`ALTER TABLE doctor_slots ADD COLUMN IF NOT EXISTS ack INTEGER NOT NULL DEFAULT 0`)
+      await pool.query(`ALTER TABLE consultations DROP CONSTRAINT IF EXISTS consultations_status_check`)
+      await pool.query(`ALTER TABLE consultations ADD CONSTRAINT consultations_status_check CHECK (status IN ('pending','in_call','approved','rejected','cancelled')) NOT VALID`)
+      await pool.query(`ALTER TABLE consultations DROP CONSTRAINT IF EXISTS consultations_payment_status_check`)
+      await pool.query(`ALTER TABLE consultations ADD CONSTRAINT consultations_payment_status_check CHECK (payment_status IN ('unpaid','paid','refunded')) NOT VALID`)
       // Các tư vấn cũ đã đi vào vận hành coi như đã thanh toán
       await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = COALESCE(paid_at, created_at) WHERE payment_status = 'unpaid' AND status IN ('in_call','approved','rejected')`)
 

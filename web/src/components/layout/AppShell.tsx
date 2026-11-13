@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Video } from 'lucide-react'
+import { api } from '../../api/client'
 import {
   Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope,
   ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon,
@@ -44,6 +46,32 @@ export default function AppShell() {
   const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
 
+  // Thông báo toàn cục (poll 15s theo vai trò) — không phụ thuộc trang đang mở
+  const [incomingCall, setIncomingCall] = useState<any | null>(null)
+  const [badges, setBadges] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    if (!user) return
+    const poll = async () => {
+      try {
+        if (user.role === 'patient') {
+          const d = await api('/patient/consultations/mine')
+          const call = (d.consultations || []).find((c: any) => c.status === 'in_call' && c.payment_status === 'paid')
+          setIncomingCall(call || null)
+        } else if (user.role === 'doctor') {
+          const d = await api('/doctor/queue')
+          setBadges({ '/doctor/dashboard': (d.queue || []).length })
+        } else if (user.role === 'pharmacy') {
+          const d = await api('/pharmacy/dashboard')
+          setBadges({ '/pharmacy/orders': d.stats?.new_orders || 0 })
+        }
+      } catch { /* im lặng — poll nền */ }
+    }
+    poll()
+    const t = window.setInterval(poll, 15000)
+    return () => window.clearInterval(t)
+  }, [user?.id])
+
   const tabs = useMemo(() => (user ? NAV_BY_ROLE[user.role] || [] : []), [user])
   if (!user) return null
 
@@ -52,6 +80,22 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Banner cuộc gọi đến — hiện ở mọi trang khi bác sĩ bắt đầu gọi */}
+      {incomingCall && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
+          <button
+            onClick={() => navigate('/patient/dashboard')}
+            className="w-full flex items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-bluedark text-white px-4 py-3 shadow-float animate-pulse"
+          >
+            <span className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Video size={20} /></span>
+            <span className="text-left flex-1 min-w-0">
+              <span className="block text-[14px] font-extrabold">Bác sĩ đang gọi bạn…</span>
+              <span className="block text-[11.5px] text-white/75 truncate">{incomingCall.preferred_doctor?.full_name || 'Bác sĩ'} · chạm để vào phòng gọi video</span>
+            </span>
+            <span className="badge bg-white text-primary shrink-0 !px-3 !py-1.5">Vào gọi</span>
+          </button>
+        </div>
+      )}
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-60 flex-col bg-white border-r border-slate-200 z-40">
         <div className="flex items-center gap-2 px-4 h-16 border-b border-slate-100">
@@ -74,6 +118,9 @@ export default function AppShell() {
             >
               <t.icon size={19} />
               {t.label}
+              {badges[t.to] > 0 && (
+                <span className="ml-auto bg-pink text-white text-[10.5px] font-extrabold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">{badges[t.to]}</span>
+              )}
             </NavLink>
           ))}
         </nav>

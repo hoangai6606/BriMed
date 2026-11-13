@@ -29,6 +29,7 @@ export default function DoctorDashboard() {
   const [data, setData] = useState<any>(null)
   const [patients, setPatients] = useState<any[]>([])
   const [slots, setSlots] = useState<any[]>([])
+  const [earnings, setEarnings] = useState<any>(null)
   const [slotForm, setSlotForm] = useState({ starts_at: '', duration_min: 30, capacity: 1 })
   const [slotBusy, setSlotBusy] = useState(false)
   const toast = useUi((s) => s.toast)
@@ -57,9 +58,10 @@ export default function DoctorDashboard() {
   }
 
   const load = useCallback(() => {
-    api('/doctor/queue').then(setData).catch(() => setData({ queue: [], mine: [] }))
+    api('/doctor/queue').then(setData).catch(() => setData({ queue: [], upcoming: [], mine: [] }))
     api('/doctor/patients').then((d) => setPatients(d.patients)).catch(() => setPatients([]))
     loadSlots()
+    api('/doctor/earnings').then(setEarnings).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -108,15 +110,56 @@ export default function DoctorDashboard() {
                 <div className="text-[13.5px]">
                   <span className="font-bold text-slate-700">{new Date(x.starts_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
                   <span className="text-slate-400"> · {x.duration_min} phút · còn {x.capacity - x.booked}/{x.capacity} chỗ</span>
+                  {x.ack ? <span className="badge bg-mint-bg text-mint-fg ml-2">Đã xác nhận</span> : null}
                 </div>
-                <button onClick={() => removeSlot(x.id)} className="text-slate-400 hover:text-redflag-fg" aria-label="Xoá khung giờ">
-                  <Trash2 size={15} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {!x.ack && (
+                    <button onClick={() => api(`/doctor/slots/${x.id}/ack`, { method: 'POST' }).then(() => { toast('Đã xác nhận lịch hẹn.', 'success'); loadSlots() }).catch((e: any) => toast(e.message, 'error'))} className="btn-outline !min-h-[32px] !px-2.5 !text-[11.5px]">
+                      Xác nhận
+                    </button>
+                  )}
+                  <button onClick={() => removeSlot(x.id)} className="text-slate-400 hover:text-redflag-fg" aria-label="Xoá khung giờ">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {/* Thu nhập của tôi */}
+      {earnings && (
+        <section className="card p-4 flex items-center justify-between gap-3 bg-gradient-to-r from-primary to-bluedark text-white">
+          <div>
+            <div className="text-[12px] text-white/70">Thu nhập của tôi</div>
+            <div className="text-[22px] font-extrabold">{new Intl.NumberFormat('vi-VN').format(earnings.month_vnd)}đ <span className="text-[12px] font-semibold text-white/70">tháng này · {earnings.month_count} lượt</span></div>
+            <div className="text-[11.5px] text-white/60">Lũy kế: {new Intl.NumberFormat('vi-VN').format(earnings.total_vnd)}đ · {earnings.total_count} lượt đã xử lý</div>
+          </div>
+          <PhoneCall size={30} className="opacity-40 shrink-0" />
+        </section>
+      )}
+
+      {/* Lượt hẹn sắp tới (chưa đến giờ) */}
+      {data.upcoming?.length > 0 && (
+        <section className="card p-4 border-2 border-pink/30 bg-lightpink/10">
+          <h2 className="section-title !text-[15.5px] flex items-center gap-1.5">
+            <CalendarClock size={16} className="text-pink" /> Lịch hẹn sắp tới ({data.upcoming.length})
+          </h2>
+          <ul className="mt-2 space-y-1.5">
+            {data.upcoming.map((c: any) => (
+              <li key={c.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3.5 py-2.5">
+                <div className="min-w-0 text-[13px]">
+                  <span className="font-bold text-slate-700">{new Date(c.slot_starts_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</span>
+                  <span className="text-slate-500"> · {c.patient_name} · {c.disease_group}</span>
+                  {c.slot_ack && <span className="badge bg-mint-bg text-mint-fg ml-2">Đã xác nhận</span>}
+                </div>
+                <Link to={`/doctor/consultation/${c.id}`} className="btn-outline !min-h-[32px] !px-2.5 !text-[11.5px] shrink-0">Xem trước</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Queue */}
       <section className="card p-4">

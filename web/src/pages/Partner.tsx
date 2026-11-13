@@ -9,7 +9,7 @@ import { PublicHeader, PublicFooter, PAIN_ICONS, TestimonialCard } from './Home'
 
 const PARTNER_BENEFITS = [
   'Standee và mã QR đặt tại quầy',
-  'Bác sĩ từ xa kê đơn điện tử ký số, liên thông Hệ thống đơn thuốc quốc gia',
+  'Bác sĩ từ xa kê đơn điện tử ký số, mã tra cứu quốc gia trên từng đơn',
   'Bán thuốc theo mã đơn; khách giữ quyền mang toa đi nơi khác',
   'Không kho, không giao hàng: thuốc có sẵn tại nhà thuốc',
   'Giảm rủi ro bị phạt 10–20 triệu đồng khi bán thuốc kê đơn không có đơn (Nghị định 90/2026)',

@@ -139,7 +139,7 @@ export const CUSTOMER_FAQ = [
   },
   {
     q: 'Khám kiểu gì? Có phải bác sĩ thật không?',
-    a: 'Bác sĩ thật đang trực sẽ xem thông tin bạn điền, gọi điện hỏi thêm 1–2 phút rồi ký đơn thuốc điện tử hợp lệ. Đơn thuốc có mã tra cứu và được kết nối với hệ thống đơn thuốc quốc gia.',
+    a: 'Bác sĩ thật đang trực sẽ xem thông tin bạn điền, gọi điện hỏi thêm 1–2 phút rồi ký đơn thuốc điện tử hợp lệ. Đơn thuốc có mã tra cứu quốc gia riêng trên từng toa — nhà thuốc đối chiếu mã trước khi cấp thuốc.',
   },
   {
     q: 'Tôi không rành dùng điện thoại thì sao?',
@@ -260,7 +260,7 @@ export const PARTNER_URGENCY = {
 // Form action mock (trang chủ)
 export const CUSTOMER_LEAD_NOTE = {
   title: 'Nhận danh sách nhà thuốc có BriMed gần bạn',
-  desc: 'Để lại số điện thoại — BriMed gửi qua Zalo/SMS danh sách nhà thuốc gần nhất có mã QR và hướng dẫn sử dụng từ A đến Z.',
+  desc: 'Để lại số điện thoại — BriMed gửi qua tin nhắn trong web danh sách nhà thuốc gần nhất có mã QR và hướng dẫn sử dụng từ A đến Z.',
 }
 
 export const PAYMENT_METHODS = ['Chuyển khoản ngân hàng', 'Ví điện tử (Momo/ZaloPay)', 'Tiền mặt tại nhà thuốc']

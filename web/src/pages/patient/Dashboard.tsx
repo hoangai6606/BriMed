@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Stethoscope, FileText, Search, ShoppingCart, UserRound, ChevronRight, Clock, BadgeCheck, Video } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { useAuth } from '../../store/auth'
+import { useUi } from '../../store/ui'
 import { api, timeAgo } from '../../api/client'
 import { useEffect, useState } from 'react'
 import { VietQRPay } from '../../components/domain/VietQRPay'
@@ -25,6 +26,7 @@ export default function PatientDashboard() {
   const [paying, setPaying] = useState<any | null>(null)
   const [videoCall, setVideoCall] = useState<any | null>(null)
   const [appointments, setAppointments] = useState<any[]>([])
+  const toast = useUi((s) => s.toast)
   const [doctors, setDoctors] = useState<any[]>([])
   const [avgWait, setAvgWait] = useState<number | null>(null)
 
@@ -42,6 +44,15 @@ export default function PatientDashboard() {
       setDoctors(d.doctors || [])
       setAvgWait(d.avg_wait_minutes ?? null)
     }).catch(() => {})
+
+  const cancelConsult = async (c: any) => {
+    if (!window.confirm('Huỷ yêu cầu tư vấn này? Phí khám 25.000đ sẽ được hoàn nếu bạn đã thanh toán.')) return
+    try {
+      const d = await api(`/patient/consultations/${c.id}`, { method: 'DELETE' })
+      toast(d.message || 'Đã huỷ.', 'success')
+      loadUnpaid()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
 
   useEffect(() => {
     refresh()
@@ -121,9 +132,12 @@ export default function PatientDashboard() {
                   {c.estimated_turn_at && <> · dự kiến tới lượt ~<strong className="text-bluedark">{new Date(c.estimated_turn_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</strong></>}
                 </div>
               </div>
-              {c.payment_status === 'unpaid'
-                ? <button onClick={() => setPaying(c)} className="btn-pink !text-[12.5px] !px-3 shrink-0">Thanh toán</button>
-                : <span className="badge bg-mint-bg text-mint-fg shrink-0">Đã thanh toán</span>}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {c.payment_status === 'unpaid'
+                  ? <button onClick={() => setPaying(c)} className="btn-pink !text-[12.5px] !px-3">Thanh toán</button>
+                  : <span className="badge bg-mint-bg text-mint-fg">Đã thanh toán</span>}
+                <button onClick={() => cancelConsult(c)} className="btn-outline !min-h-[32px] !px-2.5 !text-[11.5px]">Huỷ</button>
+              </div>
             </div>
           ))}
         </section>
@@ -200,6 +214,8 @@ export default function PatientDashboard() {
                   <div className="text-[12px] text-slate-400 flex items-center gap-1"><Clock size={11} /> {timeAgo(c.created_at)} · {c.doctor_name || 'Đang chờ bác sĩ'}</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {c.slot?.ack && c.status === 'pending' && <span className="badge bg-lightblue text-bluedark">BS đã xác nhận lịch</span>}
+                  {c.status === 'pending' && <button onClick={() => cancelConsult(c)} className="btn-outline !min-h-[32px] !px-2.5 !text-[11.5px]">Huỷ</button>}
                   {c.status === 'in_call' && (
                     <button onClick={() => setVideoCall(c)} className="btn-pink !min-h-[34px] !px-3 !text-[12.5px] pulse-ring">
                       <Video size={14} /> Vào phòng gọi
@@ -237,6 +253,7 @@ export default function PatientDashboard() {
           <VideoCallRoom
             consultationId={videoCall.id}
             role="patient"
+            peerName={videoCall.doctor_name || videoCall.preferred_doctor?.full_name}
             onEnded={() => {
               setVideoCall(null)
               loadUnpaid()
