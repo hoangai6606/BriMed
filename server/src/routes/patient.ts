@@ -271,7 +271,7 @@ r.get('/consultations/mine', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min, ds.ack AS slot_ack,
               d2.full_name AS preferred_doctor_name, d2.avatar_url AS preferred_doctor_avatar,
-              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status != 'rejected' AND c3.id < c.id) AS slot_position
+              (SELECT COUNT(*)::int FROM consultations c3 WHERE c3.slot_id = c.slot_id AND c3.status = 'pending' AND c3.id < c.id) AS slot_position
        FROM consultations c
        LEFT JOIN doctor_slots ds ON ds.id = c.slot_id
        LEFT JOIN users d2 ON d2.id = c.preferred_doctor_id
@@ -332,10 +332,29 @@ r.post('/prescriptions/:id/purchase', async (req, res) => {
     const t = nowIso()
     const rawItems = JSON.parse(rx.items || '[]')
     const items = []
+    let stockedCount = 0
     for (const it of rawItems) {
-      const inv = (await pool.query('SELECT sell_price FROM inventory WHERE pharmacy_id = $1 AND medicine_id = $2', [pharmacy.id, it.medicine_id])).rows[0]
+      const inv = (await pool.query('SELECT sell_price, stock FROM inventory WHERE pharmacy_id = $1 AND medicine_id = $2', [pharmacy.id, it.medicine_id])).rows[0]
+      if (inv && inv.stock > 0) stockedCount += 1
       const unit = inv?.sell_price ?? 0
       items.push({ ...it, unit_price: unit, line_total: unit * it.quantity })
+    }
+    // S2: chặn quầy không có bất kỳ vị thuốc nào — gợi ý ngay quầy tốt hơn
+    if (rawItems.length > 0 && stockedCount === 0) {
+      const all = (await pool.query('SELECT p.id, p.name FROM pharmacies p WHERE p.id != $1', [pharmacy.id])).rows
+      let bestName = ''
+      let bestCount = 0
+      for (const alt of all) {
+        let cnt = 0
+        for (const it of rawItems) {
+          const inv2 = (await pool.query('SELECT stock FROM inventory WHERE pharmacy_id = $1 AND medicine_id = $2', [alt.id, it.medicine_id])).rows[0]
+          if (inv2 && inv2.stock > 0) cnt += 1
+        }
+        if (cnt > bestCount) { bestCount = cnt; bestName = alt.name }
+      }
+      return res.status(409).json({
+        error: `${pharmacy.name} hiện không có bất kỳ thuốc nào trong đơn.${bestName ? ` Bạn nên gửi đến ${bestName} (còn ${bestCount}/${rawItems.length} thuốc).` : ''}`,
+      })
     }
     const receiveMethod = req.body?.receive_method === 'delivery' ? 'delivery' : 'pickup'
     const deliveryAddress = receiveMethod === 'delivery' ? String(req.body?.delivery_address || '').trim() : ''

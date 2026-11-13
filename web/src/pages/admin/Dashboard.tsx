@@ -7,12 +7,12 @@ import {
 } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { api, fmtDate, fmtVnd } from '../../api/client'
-import { PageLoading } from '../../components/common/Misc'
+import { PageLoading, Modal } from '../../components/common/Misc'
 import { useUi } from '../../store/ui'
 import { useAuth } from '../../store/auth'
 import { DISEASE_GROUPS, ROLE_LABELS } from '../../data/constants'
 
-type Tab = 'kpi' | 'leads' | 'users' | 'medicines' | 'diseases' | 'registrations'
+type Tab = 'kpi' | 'leads' | 'users' | 'consultations' | 'medicines' | 'diseases' | 'registrations'
 
 export default function AdminDashboard() {
   const [params, setParams] = useSearchParams()
@@ -21,6 +21,11 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([])
   const [medicines, setMedicines] = useState<any[]>([])
   const [regs, setRegs] = useState<any[]>([])
+  const [consults, setConsults] = useState<any[]>([])
+  const [doctors, setDoctors] = useState<any[]>([])
+  const [pharmacies, setPharmacies] = useState<any[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createForm, setCreateForm] = useState({ role: 'doctor', full_name: '', phone: '', doctor_specialty: 'Nội tổng quát', doctor_license: '', pharmacy_id: '' })
   const [leads, setLeads] = useState<any[]>([])
   const [busy, setBusy] = useState(false)
   const toast = useUi((s) => s.toast)
@@ -34,6 +39,9 @@ export default function AdminDashboard() {
     api('/admin/users').then((d) => setUsers(d.users)).catch(() => {})
     api('/admin/medicines').then((d) => setMedicines(d.medicines)).catch(() => {})
     api('/admin/partner-registrations').then((d) => setRegs(d.registrations)).catch(() => {})
+    api('/admin/consultations').then((d) => setConsults(d.consultations || [])).catch(() => {})
+    api('/auth/doctors').then((d) => setDoctors(d.doctors || [])).catch(() => {})
+    api('/catalog/pharmacies').then((d) => setPharmacies(d.pharmacies || [])).catch(() => {})
     api('/admin/patient-leads').then((d) => setLeads(d.leads)).catch(() => {})
   }
   useEffect(load, [])
@@ -86,6 +94,33 @@ export default function AdminDashboard() {
     await api(`/admin/partner-registrations/${r.id}`, { method: 'PUT', body: JSON.stringify({ status }) }).catch(() => {})
   }
 
+  const forceClose = async (c: any) => {
+    if (!window.confirm(`Huỷ phiên #${c.id} của ${c.patient_name}? Phí 25.000đ sẽ được hoàn nếu đã thanh toán.`)) return
+    try {
+      const d = await api(`/admin/consultations/${c.id}/force-close`, { method: 'POST', body: JSON.stringify({}) })
+      toast(d.message, 'success'); load()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
+
+  const reassign = async (c: any, doctorId: string) => {
+    if (!doctorId) return
+    try {
+      const d = await api(`/admin/consultations/${c.id}/force-close`, { method: 'POST', body: JSON.stringify({ doctor_id: Number(doctorId) }) })
+      toast(d.message, 'success'); load()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
+
+  const createUser = async () => {
+    if (!createForm.full_name || !createForm.phone) { toast('Cần họ tên và số điện thoại.', 'error'); return }
+    try {
+      const d = await api('/admin/users', { method: 'POST', body: JSON.stringify({ ...createForm, pharmacy_id: createForm.pharmacy_id || undefined }) })
+      toast(`${d.account.phone} · Mật khẩu: ${d.account.password}`, 'success')
+      setCreateOpen(false)
+      setCreateForm({ role: 'doctor', full_name: '', phone: '', doctor_specialty: 'Nội tổng quát', doctor_license: '', pharmacy_id: '' })
+      load()
+    } catch (e: any) { toast(e.message, 'error') }
+  }
+
   const billSubscriptions = async () => {
     if (!window.confirm('Chốt phí thuê bao tháng hiện tại cho toàn bộ nhà thuốc đang hoạt động (500.000đ 6 tháng đầu / 900.000đ sau đó)?')) return
     try {
@@ -131,6 +166,7 @@ export default function AdminDashboard() {
           ['users', `Tài khoản (${kpi.counts.patients + kpi.counts.doctors + kpi.counts.pharmacies + 1})`],
           ['medicines', `Danh mục thuốc (${kpi.counts.medicines})`],
           ['diseases', 'Danh mục bệnh TT 30/2023'],
+          ['consultations', `Phiên tư vấn (${consults.filter((c: any) => c.status === 'pending').length})`],
           ['registrations', `Đăng ký đối tác (${kpi.counts.partner_registrations})`],
           ['leads', `Khách hàng quan tâm (${leads.length})`],
         ] as [Tab, string][]).map(([k, label]) => (
@@ -203,6 +239,10 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'users' && (
+        <>
+        <div className="flex justify-end mb-2">
+          <button onClick={() => setCreateOpen(true)} className="btn-primary !min-h-[38px] !px-3.5 !text-[12.5px]">+ Tạo tài khoản</button>
+        </div>
         <section className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-[13.5px] min-w-[640px]">
@@ -243,6 +283,53 @@ export default function AdminDashboard() {
             </table>
           </div>
         </section>
+        </>
+      )}
+
+      {createOpen && (
+        <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Tạo tài khoản mới">
+          <div className="space-y-3">
+            <div>
+              <label className="label">Vai trò *</label>
+              <select className="input" value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}>
+                <option value="doctor">Bác sĩ</option>
+                <option value="patient">Bệnh nhân</option>
+                <option value="pharmacy">Nhà thuốc</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Họ tên *</label>
+              <input className="input" value={createForm.full_name} onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })} placeholder="BS. / QL …" />
+            </div>
+            <div>
+              <label className="label">Số điện thoại (đăng nhập) *</label>
+              <input className="input" inputMode="tel" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="090xxxxxxx" />
+            </div>
+            {createForm.role === 'doctor' && (
+              <>
+                <div>
+                  <label className="label">Chuyên khoa</label>
+                  <input className="input" value={createForm.doctor_specialty} onChange={(e) => setCreateForm({ ...createForm, doctor_specialty: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Số giấy phép hành nghề</label>
+                  <input className="input" value={createForm.doctor_license} onChange={(e) => setCreateForm({ ...createForm, doctor_license: e.target.value })} placeholder="BYT-BS-xxxx" />
+                </div>
+              </>
+            )}
+            {createForm.role === 'pharmacy' && (
+              <div>
+                <label className="label">Nhà thuốc gắn với tài khoản *</label>
+                <select className="input" value={createForm.pharmacy_id} onChange={(e) => setCreateForm({ ...createForm, pharmacy_id: e.target.value })}>
+                  <option value="">— Chọn nhà thuốc —</option>
+                  {pharmacies.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="rounded-xl bg-lightblue/40 p-3 text-[12.5px] text-bluedark">Mật khẩu tự sinh (kiểu brimed@1234) và hiển thị một lần sau khi tạo.</div>
+            <button onClick={createUser} className="btn-pink w-full">Tạo tài khoản</button>
+          </div>
+        </Modal>
       )}
 
       {tab === 'medicines' && (
@@ -335,6 +422,57 @@ export default function AdminDashboard() {
                   )}
                 </li>
               ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {tab === 'consultations' && (
+        <section className="card p-4">
+          <h2 className="section-title mb-2">Phiên tư vấn — can thiệp ca kẹt</h2>
+          {consults.length === 0 ? (
+            <p className="text-[13.5px] text-slate-400 text-center py-3">Chưa có phiên nào.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {consults.map((c: any) => {
+                const stuckMin = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 60000)
+                const stuck = c.status === 'pending' && c.payment_status === 'paid' && stuckMin > 15
+                return (
+                  <li key={c.id} className={`py-3 rounded-xl px-2 ${stuck ? 'bg-redflag-bg/40 border border-redflag-fg/30' : ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-bold text-slate-700">
+                          #{c.id} {c.patient_name} <span className="text-slate-400 font-normal">· {c.disease_group}</span>
+                        </div>
+                        <div className="text-[12px] text-slate-500">
+                          {c.doctor_name || 'Chưa có bác sĩ'} · {fmtDate(c.created_at)} ({stuckMin} phút trước) ·{' '}
+                          <span className={c.payment_status === 'paid' ? 'text-primary font-bold' : c.payment_status === 'refunded' ? 'text-pink-dark font-bold' : 'text-amber-600 font-bold'}>
+                            {{ paid: 'Đã trả 25k', unpaid: 'Chưa trả', refunded: 'Đã hoàn' }[c.payment_status as string]}
+                          </span>
+                        </div>
+                        {stuck && <div className="text-[12px] font-bold text-redflag-fg mt-0.5">⚠ Chờ quá {stuckMin} phút — cần xử lý ngay</div>}
+                      </div>
+                      <span className={`badge ${c.status === 'approved' ? 'bg-mint-bg text-mint-fg' : c.status === 'rejected' ? 'bg-redflag-bg text-redflag-fg' : c.status === 'in_call' ? 'bg-lightpink text-pink-dark' : c.status === 'cancelled' ? 'bg-slate-100 text-slate-500' : 'bg-amber-100 text-amber-700'}`}>
+                        {{ pending: 'Chờ', in_call: 'Đang gọi', approved: 'Đã duyệt', rejected: 'Từ chối', cancelled: 'Đã huỷ' }[c.status as string]}
+                      </span>
+                    </div>
+                    {c.status === 'pending' && (
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <select
+                          className="input !min-h-[34px] !w-56 !text-[12.5px]"
+                          defaultValue=""
+                          onChange={(e: any) => reassign(c, e.target.value)}
+                          aria-label={`Gắn phiên ${c.id} cho bác sĩ`}
+                        >
+                          <option value="">Gắn cho bác sĩ…</option>
+                          {doctors.map((d: any) => <option key={d.id} value={d.id}>{d.full_name} · {d.doctor_specialty}</option>)}
+                        </select>
+                        <button onClick={() => forceClose(c)} className="btn-danger !min-h-[34px] !px-3 !text-[12.5px]">Huỷ &amp; hoàn tiền</button>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>

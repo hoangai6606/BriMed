@@ -198,6 +198,8 @@ r.post('/consultations/:id/call-token', async (req, res) => {
     if (!c) return res.status(404).json({ error: 'Không tìm thấy yêu cầu tư vấn.' })
     if (['approved', 'rejected'].includes(c.status)) return res.status(400).json({ error: 'Yêu cầu đã được xử lý.' })
     if (c.payment_status !== 'paid') return res.status(402).json({ error: 'Bệnh nhân chưa thanh toán phí khám — chưa thể gọi video.' })
+    const guardErr = await designatedGuardError(c, req)
+    if (guardErr) return res.status(403).json({ error: guardErr })
     if (c.status === 'in_call' && c.doctor_id && c.doctor_id !== req.user.id) {
       return res.status(403).json({ error: 'Cuộc gọi đang được bác sĩ khác xử lý.' })
     }
@@ -218,6 +220,8 @@ r.post('/consultations/:id/call-log', async (req, res) => {
   try {
     const c = (await pool.query('SELECT * FROM consultations WHERE id = $1', [req.params.id])).rows[0]
     if (!c || ['approved', 'rejected'].includes(c.status)) return res.status(400).json({ error: 'Yêu cầu đã được xử lý.' })
+    const guardErrCl = await designatedGuardError(c, req)
+    if (guardErrCl) return res.status(403).json({ error: guardErrCl })
     const action = req.body?.action
     if (action === 'start') {
       await pool.query(`UPDATE consultations SET status = 'in_call', doctor_id = $1, call_started_at = $2 WHERE id = $3`, [req.user.id, nowIso(), c.id])
@@ -237,6 +241,8 @@ r.post('/consultations/:id/decision', async (req, res) => {
   try {
     const c = (await pool.query('SELECT * FROM consultations WHERE id = $1', [req.params.id])).rows[0]
     if (!c || ['approved', 'rejected'].includes(c.status)) return res.status(400).json({ error: 'Yêu cầu đã được xử lý.' })
+    const guardErrDc = await designatedGuardError(c, req)
+    if (guardErrDc) return res.status(403).json({ error: guardErrDc })
     if (req.body?.decision !== 'reject') return res.status(400).json({ error: 'Dùng POST /doctor/prescriptions để kê đơn.' })
     const reason = String(req.body?.reason || '').trim()
     if (!reason) return res.status(400).json({ error: 'Vui lòng ghi rõ lý do từ chối / chuyển khám.' })
@@ -259,6 +265,18 @@ r.post('/consultations/:id/decision', async (req, res) => {
     res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
   }
 })
+
+// S2-5: ca chỉ định — 5 phút đầu chỉ bác sĩ được chỉ định mới được nhận
+async function designatedGuardError(c: any, req: any): Promise<string | null> {
+  if (c.status === 'pending' && c.preferred_doctor_id && c.preferred_doctor_id !== req.user.id) {
+    const ageMin = (Date.now() - new Date(c.created_at).getTime()) / 60000
+    if (ageMin < 5) {
+      const designated = (await pool.query('SELECT full_name FROM users WHERE id = $1', [c.preferred_doctor_id])).rows[0]
+      return `Lượt này bệnh nhân chỉ định ${designated?.full_name || 'bác sĩ khác'} — vui lòng chờ sau 5 phút đầu nếu bác sĩ đó chưa nhận.`
+    }
+  }
+  return null
+}
 
 // ---------- Hồ sơ bệnh nhân (chỉ khi được cấp quyền) ----------
 r.get('/patients/:id/record', async (req, res) => {
@@ -335,6 +353,8 @@ r.post('/prescriptions', async (req, res) => {
       consultation = (await pool.query('SELECT * FROM consultations WHERE id = $1', [b.consultation_id])).rows[0]
       if (!consultation) return res.status(404).json({ error: 'Không tìm thấy phiên tư vấn.' })
       if (['approved', 'rejected'].includes(consultation.status)) return res.status(400).json({ error: 'Phiên tư vấn đã được xử lý.' })
+      const guardErrPr = await designatedGuardError(consultation, req)
+      if (guardErrPr) return res.status(403).json({ error: guardErrPr })
       patientId = consultation.patient_id
     }
     if (!patientId) return res.status(400).json({ error: 'Thiếu thông tin bệnh nhân.' })

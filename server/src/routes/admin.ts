@@ -211,6 +211,71 @@ r.put('/patient-leads/:id', async (req, res) => {
   }
 })
 
+// S2-9/10: can thiệp ca kẹt — huỷ & hoàn tiền, hoặc gắn lại bác sĩ
+r.post('/consultations/:id/force-close', async (req, res) => {
+  try {
+    await ensureDb()
+    const c = (await pool.query('SELECT * FROM consultations WHERE id = $1', [req.params.id])).rows[0]
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy phiên tư vấn.' })
+    if (c.status !== 'pending') return res.status(400).json({ error: 'Chỉ can thiệp được phiên đang chờ.' })
+    if (req.body?.doctor_id) {
+      const doc = (await pool.query(`SELECT id, full_name FROM users WHERE id = $1 AND role = 'doctor'`, [Number(req.body.doctor_id)])).rows[0]
+      if (!doc) return res.status(404).json({ error: 'Không tìm thấy bác sĩ.' })
+      await pool.query('UPDATE consultations SET preferred_doctor_id = $1 WHERE id = $2', [doc.id, c.id])
+      return res.json({ ok: true, message: `Đã gắn phiên #${c.id} cho ${doc.full_name}.` })
+    }
+    await pool.query(`UPDATE consultations SET status = 'cancelled' WHERE id = $1`, [c.id])
+    if (c.payment_status === 'paid') {
+      await pool.query(`UPDATE consultations SET payment_status = 'refunded' WHERE id = $1`, [c.id])
+      await pool.query(
+        `INSERT INTO transactions (user_id, type, amount_token, amount_vnd, description, consultation_id, created_at)
+         VALUES ($1, 'consultation_refund', 0, -25000, $2, $3, $4)`,
+        [c.patient_id, `Hoàn phí khám do quản trị đóng phiên kẹt #${c.id}`, c.id, nowIso()]
+      )
+      return res.json({ ok: true, refunded: true, message: `Đã huỷ phiên #${c.id} và hoàn 25.000đ cho bệnh nhân.` })
+    }
+    res.json({ ok: true, refunded: false, message: `Đã huỷ phiên #${c.id} (chưa thanh toán).` })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
+// S2-11: tạo tài khoản mới (bác sĩ / bệnh nhân / nhà thuốc)
+r.post('/users', async (req, res) => {
+  try {
+    await ensureDb()
+    const b = req.body || {}
+    if (!b.full_name || !b.phone) return res.status(400).json({ error: 'Cần họ tên và số điện thoại.' })
+    if (!/^0\d{9}$/.test(b.phone)) return res.status(400).json({ error: 'Số điện thoại không hợp lệ.' })
+    if (!['patient', 'doctor', 'pharmacy'].includes(b.role)) return res.status(400).json({ error: 'Vai trò không hợp lệ.' })
+    const dup = (await pool.query('SELECT id FROM users WHERE phone = $1', [b.phone])).rows[0]
+    if (dup) return res.status(409).json({ error: `Số điện thoại ${b.phone} đã có tài khoản.` })
+    let pharmacyId: number | null = null
+    if (b.role === 'pharmacy') {
+      if (!b.pharmacy_id) return res.status(400).json({ error: 'Chọn nhà thuốc để gắn tài khoản.' })
+      const ph = (await pool.query('SELECT id FROM pharmacies WHERE id = $1', [Number(b.pharmacy_id)])).rows[0]
+      if (!ph) return res.status(404).json({ error: 'Không tìm thấy nhà thuốc.' })
+      pharmacyId = ph.id
+    }
+    const password = b.password || ('brimed@' + String(Math.floor(1000 + Math.random() * 9000)))
+    const { sha256 } = await import('../auth.js')
+    const ins = await pool.query(
+      `INSERT INTO users (full_name, phone, password_hash, cccd, role, doctor_specialty, doctor_license, avatar_url, pharmacy_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [b.full_name, b.phone, sha256(password), b.cccd || '', b.role,
+        b.role === 'doctor' ? (b.doctor_specialty || 'Nội tổng quát') : null,
+        b.role === 'doctor' ? (b.doctor_license || '') : null,
+        b.role === 'doctor' ? (b.avatar_url || '') : '',
+        pharmacyId, nowIso()]
+    )
+    res.json({ ok: true, id: ins.rows[0].id, account: { phone: b.phone, password, note: 'Mật khẩu hiển thị một lần — chuyển giao và yêu cầu đổi sau đăng nhập đầu tiên.' } })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 // Duyệt đăng ký đối tác -> tự tạo nhà thuốc + tài khoản quản lý (onboarding khép kín)
 r.post('/registrations/:id/provision', async (req, res) => {
   try {
