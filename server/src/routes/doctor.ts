@@ -48,6 +48,11 @@ r.get('/queue', async (req, res) => {
   try {
     const nowIso = new Date().toISOString()
     await pool.query('UPDATE users SET last_seen_at = $1 WHERE id = $2', [nowIso, req.user.id])
+    // Tự hoàn tác lượt in_call bỏ quên quá 20 phút (BS đóng tab giữa chừng) -> về pending cho nhận lại
+    await pool.query(
+      `UPDATE consultations SET status = 'pending' WHERE status = 'in_call' AND call_started_at < $1`,
+      [new Date(Date.now() - 20 * 60000).toISOString()]
+    )
     const soonIso = new Date(Date.now() + 10 * 60000).toISOString()
     const pending = (await pool.query(
       `SELECT c.*, ds.starts_at AS slot_starts_at, ds.duration_min AS slot_duration_min,

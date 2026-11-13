@@ -92,8 +92,8 @@ export default function DoctorDashboard() {
           <CalendarClock size={18} className="text-pink" /> Lịch trực — mở khung giờ nhận lượt hẹn
         </h2>
         <p className="text-[12px] text-slate-400 mb-3">Bệnh nhân có thể đặt trước các khung giờ này; lượt hẹn luôn được xử lý trước lượt walk-in.</p>
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
-          <div>
+        <div className="grid grid-cols-2 gap-2 items-end sm:grid-cols-[1fr_auto_auto_auto]">
+          <div className="col-span-2 sm:col-span-1">
             <label className="label" htmlFor="slot-start">Thời gian bắt đầu</label>
             <input id="slot-start" type="datetime-local" className="input" value={slotForm.starts_at} onChange={(e) => setSlotForm({ ...slotForm, starts_at: e.target.value })} />
           </div>
