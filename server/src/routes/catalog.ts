@@ -55,6 +55,38 @@ r.get('/pharmacies', async (_req, res) => {
   }
 })
 
+// Lịch bác sĩ trực 7 ngày tới (công khai, chỉ đọc) — cho mục "Lịch bác sĩ" trên trang chủ.
+// Chỉ trả thông tin hành nghề công khai (tên, chuyên khoa, mã CCHN), không lộ dữ liệu bệnh nhân.
+r.get('/schedule', async (_req, res) => {
+  try {
+    await ensureDb()
+    const now = new Date()
+    const until = new Date(now.getTime() + 7 * 24 * 3600_000)
+    const { rows } = await pool.query(
+      `SELECT ds.id, ds.starts_at, ds.duration_min, ds.capacity,
+        u.id AS doctor_id, u.full_name AS doctor_name, u.doctor_specialty, u.doctor_license, u.avatar_url,
+        (SELECT COUNT(*)::int FROM consultations c
+          WHERE c.slot_id = ds.id AND c.status NOT IN ('rejected','cancelled')
+            AND (c.payment_status = 'paid' OR c.created_at > $3)) AS booked
+       FROM doctor_slots ds JOIN users u ON u.id = ds.doctor_id
+       WHERE ds.status = 'open' AND ds.starts_at > $1 AND ds.starts_at < $2 AND u.role = 'doctor'
+       ORDER BY ds.starts_at ASC LIMIT 80`,
+      // Cùng quy tắc với lúc đặt lịch: ghế chưa thanh toán chỉ được giữ 15 phút
+      [now.toISOString(), until.toISOString(), new Date(now.getTime() - 15 * 60000).toISOString()]
+    )
+    res.json({
+      slots: rows.map((s: any) => ({
+        ...s,
+        avatar_url: s.avatar_url || '',
+        seats_left: Math.max(0, Number(s.capacity) - Number(s.booked)),
+      })),
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Lỗi máy chủ, vui lòng thử lại.' })
+  }
+})
+
 // Form 2 – đăng ký nhà thuốc đối tác (landing B2B)
 r.post('/partner-registrations', async (req, res) => {
   try {
