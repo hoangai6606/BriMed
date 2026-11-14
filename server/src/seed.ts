@@ -120,14 +120,22 @@ export async function seedDb(): Promise<void> {
   for (const u of users) {
     const r = await pool.query(
       `INSERT INTO users (full_name, phone, password_hash, cccd, role,
-       avatar_url, doctor_specialty, doctor_license, doctor_online, pharmacy_id, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+       avatar_url, doctor_specialty, doctor_license, doctor_online, last_seen_at, pharmacy_id, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
       [u.full_name, u.phone, u.password_hash, u.cccd ?? '', u.role,
-        u.avatar_url ?? '', u.doctor_specialty ?? null, u.doctor_license ?? null, u.doctor_online ?? 0, u.pharmacy_id ?? null, daysAgo(90)]
+        u.avatar_url ?? '', u.doctor_specialty ?? null, u.doctor_license ?? null,
+        u.doctor_online ?? 0, u.doctor_online ? new Date().toISOString() : '', u.pharmacy_id ?? null, daysAgo(90)]
     )
     userIds.push(r.rows[0].id)
   }
   const [lanId, hungId, tuanId, hongId, , bsHaId, , bsAnhId, , mcId] = userIds
+
+  // Slot mẫu cho BS Minh (hôm nay +2h, ngày mai) — nhóm "Có lịch đặt trước" luôn có dữ liệu khi demo
+  await pool.query(
+    `INSERT INTO doctor_slots (doctor_id, starts_at, duration_min, capacity, status, ack, created_at)
+     VALUES ($1,$2,30,2,'open',0,$3), ($1,$4,30,2,'open',0,$3)`,
+    [userIds[4], new Date(Date.now() + 2 * 3600_000).toISOString(), new Date().toISOString(), new Date(Date.now() + 26 * 3600_000).toISOString()]
+  )
 
   // ---------------- Hồ sơ sức khỏe ----------------
   const profiles = [
