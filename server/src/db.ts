@@ -269,9 +269,16 @@ export function ensureDb(): Promise<void> {
       await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT DEFAULT ''`)
       await pool.query(`ALTER TABLE doctor_slots ADD COLUMN IF NOT EXISTS ack INTEGER NOT NULL DEFAULT 0`)
       await pool.query(`ALTER TABLE consultations DROP CONSTRAINT IF EXISTS consultations_status_check`)
-      await pool.query(`ALTER TABLE consultations ADD CONSTRAINT consultations_status_check CHECK (status IN ('pending','in_call','approved','rejected','cancelled')) NOT VALID`)
+      // Nhiều instance serverless có thể cold start song song và cùng chạy migration
+      // này — bọc ADD CONSTRAINT trong DO block nuốt lỗi duplicate_object (42710)
+      // để instance đến sau không sập ensureDb (race DROP/ADD gây 500 toàn request).
+      await pool.query(`DO $$ BEGIN
+        ALTER TABLE consultations ADD CONSTRAINT consultations_status_check CHECK (status IN ('pending','in_call','approved','rejected','cancelled')) NOT VALID;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$;`)
       await pool.query(`ALTER TABLE consultations DROP CONSTRAINT IF EXISTS consultations_payment_status_check`)
-      await pool.query(`ALTER TABLE consultations ADD CONSTRAINT consultations_payment_status_check CHECK (payment_status IN ('unpaid','paid','refunded')) NOT VALID`)
+      await pool.query(`DO $$ BEGIN
+        ALTER TABLE consultations ADD CONSTRAINT consultations_payment_status_check CHECK (payment_status IN ('unpaid','paid','refunded')) NOT VALID;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$;`)
       // Các tư vấn cũ đã đi vào vận hành coi như đã thanh toán
       await pool.query(`UPDATE consultations SET payment_status = 'paid', paid_at = COALESCE(paid_at, created_at) WHERE payment_status = 'unpaid' AND status IN ('in_call','approved','rejected')`)
 
