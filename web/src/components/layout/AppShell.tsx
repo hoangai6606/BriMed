@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { Video } from 'lucide-react'
 import { api } from '../../api/client'
@@ -36,7 +36,7 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
   ],
   admin: [
     { to: '/admin/dashboard', label: 'Tổng quan', icon: ShieldCheck },
-    { to: '/admin/analytics', label: 'Phân tích', icon: BarChart3 },
+    { to: '/admin/analytics', label: 'Data Center Brimed', icon: BarChart3 },
     { to: '/admin/dashboard?tab=leads', label: 'Khách hàng', icon: UserRound },
     { to: '/admin/dashboard?tab=users', label: 'Tài khoản', icon: UserRound },
     { to: '/admin/dashboard?tab=medicines', label: 'Danh mục', icon: Pill },
@@ -46,6 +46,18 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
 export default function AppShell() {
   const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // NavLink mặc định so khớp pathname mà bỏ qua query string, nên các mục
+  // /admin/dashboard?tab=… của admin cùng sáng xanh một lúc. So khớp luôn tham
+  // số tab để đúng MỘT mục sáng cho trang đang mở (kpi = tab mặc định).
+  const isTabActive = (t: Tab) => {
+    const [path, query = ''] = t.to.split('?')
+    if (location.pathname !== path) return false
+    const currentTab = new URLSearchParams(location.search).get('tab') || ''
+    const linkTab = query ? new URLSearchParams(query).get('tab') || '' : ''
+    return currentTab === linkTab || (!linkTab && (!currentTab || currentTab === 'kpi'))
+  }
 
   // Thông báo toàn cục (poll 15s theo vai trò) — không phụ thuộc trang đang mở
   const [incomingCall, setIncomingCall] = useState<any | null>(null)
@@ -111,9 +123,9 @@ export default function AppShell() {
             <NavLink
               key={t.to}
               to={t.to}
-              className={({ isActive }) =>
+              className={() =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-semibold ${
-                  isActive ? 'bg-primary text-white' : 'text-slate-600 hover:bg-lightblue/30'
+                  isTabActive(t) ? 'bg-primary text-white' : 'text-slate-600 hover:bg-lightblue/30'
                 }`
               }
             >
@@ -193,16 +205,16 @@ export default function AppShell() {
             <NavLink
               key={t.to}
               to={t.to}
-              className={({ isActive }) =>
+              className={() =>
                 `flex flex-col items-center justify-center py-2 min-h-[56px] text-[10.5px] font-semibold ${
-                  isActive ? 'text-primary' : 'text-slate-400'
+                  isTabActive(t) ? 'text-primary' : 'text-slate-400'
                 }`
               }
             >
-              {({ isActive }) => (
+              {() => (
                 <>
-                  <span className={`mb-0.5 rounded-full p-1.5 ${isActive ? 'bg-lightblue/60' : ''}`}>
-                    <t.icon size={21} strokeWidth={isActive ? 2.4 : 2} />
+                  <span className={`mb-0.5 rounded-full p-1.5 ${isTabActive(t) ? 'bg-lightblue/60' : ''}`}>
+                    <t.icon size={21} strokeWidth={isTabActive(t) ? 2.4 : 2} />
                   </span>
                   {t.label}
                 </>
