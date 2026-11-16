@@ -460,11 +460,14 @@ export function Funnel({ steps }: { steps: { label: string; value: number; color
       {steps.map((s, i) => {
         const prev = i > 0 ? steps[i - 1].value : null
         const conv = prev ? Math.round((s.value / prev) * 1000) / 10 : null
+        // Kẹp 3–100%: các bước đếm độc lập trong kỳ (không bắt buộc lồng nhau)
+        // nên bước giữa có thể lớn hơn bước đầu — không để thanh tràn khỏi card.
+        const widthPct = Math.min(Math.max((s.value / top) * 100, 3), 100)
         return (
           <div key={s.label} className="flex items-center gap-2.5">
             <div className="w-[118px] shrink-0 text-right text-[11.5px] font-semibold leading-tight text-slate-500">{s.label}</div>
-            <div className="relative h-9 flex-1">
-              <div className="absolute inset-y-0 left-0 rounded-lg transition-all" style={{ width: `${Math.max((s.value / top) * 100, 3)}%`, background: `linear-gradient(90deg, ${s.color}e6, ${s.color}b3)` }} />
+            <div className="relative h-9 flex-1 overflow-hidden">
+              <div className="absolute inset-y-0 left-0 rounded-lg transition-all" style={{ width: `${widthPct}%`, background: `linear-gradient(90deg, ${s.color}e6, ${s.color}b3)` }} />
               <span className="absolute inset-y-0 left-3 flex items-center text-[13px] font-extrabold text-white drop-shadow">{fmtInt(s.value)}</span>
             </div>
             <div className="w-[52px] shrink-0 text-left text-[11px] font-bold text-slate-400">
