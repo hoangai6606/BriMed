@@ -4,7 +4,7 @@ import { Video } from 'lucide-react'
 import { api } from '../../api/client'
 import {
   Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope,
-  ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon,
+  ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon, BarChart3,
 } from 'lucide-react'
 import { useAuth } from '../../store/auth'
 import { ROLE_LABELS } from '../../data/constants'
@@ -36,6 +36,7 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
   ],
   admin: [
     { to: '/admin/dashboard', label: 'Tổng quan', icon: ShieldCheck },
+    { to: '/admin/analytics', label: 'Phân tích', icon: BarChart3 },
     { to: '/admin/dashboard?tab=leads', label: 'Khách hàng', icon: UserRound },
     { to: '/admin/dashboard?tab=users', label: 'Tài khoản', icon: UserRound },
     { to: '/admin/dashboard?tab=medicines', label: 'Danh mục', icon: Pill },

@@ -26,6 +26,8 @@ r.post('/register', async (req, res) => {
     )
     const userId = rows[0].id
     await pool.query('INSERT INTO health_profiles (user_id, share_consent) VALUES ($1, 1)', [userId])
+    pool.query(`INSERT INTO activity_events (user_id, role, event, path, created_at) VALUES ($1, $2, 'signup', '/auth', $3)`,
+      [userId, role, nowIso()]).catch(() => {})
     const user = (await pool.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0]
     const token = await createSession(userId)
     res.json({ token, ...mePayload(user) })
@@ -51,6 +53,8 @@ r.post('/login', async (req, res) => {
       user.doctor_online = 1
     }
     const token = await createSession(user.id)
+    pool.query(`INSERT INTO activity_events (user_id, role, event, path, created_at) VALUES ($1, $2, 'login', '/auth', $3)`,
+      [user.id, user.role, nowIso()]).catch(() => {})
     res.json({ token, ...mePayload(user) })
   } catch (e) {
     console.error(e)

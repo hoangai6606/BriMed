@@ -230,6 +230,22 @@ CREATE TABLE IF NOT EXISTS patient_leads (
   status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','contacted','converted')),
   created_at TEXT NOT NULL
 );
+
+-- Sự kiện hành vi cho trang "Phân tích & Theo dõi" của quản trị viên:
+-- visit (lượt xem trang, khách chưa đăng nhập role='guest'), login, signup.
+-- visitor_id do trình duyệt tự sinh (localStorage) để đếm khách riêng biệt.
+CREATE TABLE IF NOT EXISTS activity_events (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  role TEXT NOT NULL DEFAULT 'guest',
+  event TEXT NOT NULL CHECK (event IN ('visit','login','signup')),
+  path TEXT DEFAULT '',
+  referrer TEXT DEFAULT '',
+  visitor_id TEXT DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_events (created_at);
+CREATE INDEX IF NOT EXISTS idx_activity_visitor ON activity_events (visitor_id);
 `
 
 let ready: Promise<void> | null = null
@@ -305,6 +321,11 @@ export function ensureDb(): Promise<void> {
           ]
         )
       }
+
+      // Dọn sự kiện hành vi quá 400 ngày cũ để bảng activity_events không phình vô hạn
+      await pool.query(`DELETE FROM activity_events WHERE created_at < $1`, [
+        new Date(Date.now() - 400 * 86400_000).toISOString(),
+      ])
     })().catch((e) => {
       ready = null
       throw e

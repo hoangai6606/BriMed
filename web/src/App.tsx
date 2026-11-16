@@ -26,6 +26,8 @@ import ReceivePrescription from './pages/pharmacy/ReceivePrescription'
 import QuoteConfirm from './pages/pharmacy/QuoteConfirm'
 import PharmacyOrders from './pages/pharmacy/Orders'
 import AdminDashboard from './pages/admin/Dashboard'
+import AdminAnalytics from './pages/admin/Analytics'
+import { VisitTracker } from './api/track'
 
 function RequireRole({ role, children }: { role: string | string[]; children: any }) {
   const { user, loading } = useAuth()
@@ -84,10 +86,12 @@ export default function App() {
         {/* Quản trị viên */}
         <Route element={<RequireRole role="admin"><AppShell /></RequireRole>}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/analytics" element={<AdminAnalytics />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <VisitTracker />
       <Toasts />
     </>
   )

@@ -2,9 +2,11 @@ import { Router } from 'express'
 import { pool, ensureDb, nowIso } from '../db'
 import { requireAuth, requireRole } from '../auth'
 import { seedDb } from '../seed'
+import analyticsRoutes from './analytics'
 
 const r = Router()
 r.use(requireAuth, requireRole('admin'))
+r.use('/analytics', analyticsRoutes)
 
 const ANTIBIOTIC_THRESHOLD = 30 // % ngưỡng cảnh báo tỷ lệ toa có kháng sinh
 

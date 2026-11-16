@@ -5,6 +5,7 @@ import { attachUser } from './auth'
 import authRoutes from './routes/auth'
 import catalogRoutes from './routes/catalog'
 import adminRoutes from './routes/admin'
+import trackRoutes from './routes/track'
 import patientRoutes from './routes/patient'
 import doctorRoutes from './routes/doctor'
 import pharmacyRoutes from './routes/pharmacy'
@@ -26,6 +27,7 @@ app.use(async (_req, _res, next) => {
 app.use(attachUser)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'BriMed API', time: new Date().toISOString() }))
+app.use('/api/track', trackRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/catalog', catalogRoutes)
 app.use('/api/patient', patientRoutes)
