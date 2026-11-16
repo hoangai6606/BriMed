@@ -221,7 +221,7 @@ r.get('/', async (req, res) => {
          FROM activity_events WHERE event = 'visit' AND created_at >= $1 GROUP BY path ORDER BY visits DESC LIMIT 10`, [fromIso]),
       q(`SELECT COUNT(*) FILTER (WHERE first_seen < $1)::int AS returning, COUNT(*) FILTER (WHERE first_seen >= $1)::int AS new_v
          FROM (SELECT visitor_id, MIN(created_at) AS first_seen FROM activity_events WHERE visitor_id != '' GROUP BY 1) t
-         WHERE visitor_id IN (SELECT DISTINCT visitor_id FROM activity_events WHERE event = 'visit' AND created_at >= $1)`, [fromIso, fromIso]),
+         WHERE visitor_id IN (SELECT DISTINCT visitor_id FROM activity_events WHERE event = 'visit' AND created_at >= $1)`, [fromIso]),
     ])
 
     const countByRole = (rows: any[]) => {
@@ -309,7 +309,7 @@ r.get('/', async (req, res) => {
         [new Date(Date.now() - 365 * 86400_000).toISOString()]),
       q(`SELECT subscription_plan AS plan, COUNT(*)::int AS c FROM pharmacies GROUP BY 1`),
       q(`SELECT (SELECT COUNT(DISTINCT patient_id)::int FROM consultations WHERE created_at >= $1) AS with1,
-                (SELECT COUNT(*)::int FROM (SELECT patient_id FROM consultations WHERE created_at >= $1 GROUP BY patient_id HAVING COUNT(*) >= 2) t) AS with2`, [fromIso, fromIso]),
+                (SELECT COUNT(*)::int FROM (SELECT patient_id FROM consultations WHERE created_at >= $1 GROUP BY patient_id HAVING COUNT(*) >= 2) t) AS with2`, [fromIso]),
       q(`SELECT COUNT(*)::int AS active_p, COUNT(*) FILTER (WHERE c >= 2)::int AS ret FROM (SELECT patient_id, COUNT(*)::int AS c FROM consultations GROUP BY patient_id) t`, []),
     ])
 
