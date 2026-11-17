@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, Bell, BellOff, CalendarDays, Check, ChevronDown, Clock3, FileSignature, Leaf, MapPin,
-  Phone, QrCode, Search, ShieldCheck, ShoppingBag, Sparkles, Stethoscope, Users, Video, Pill,
+  Phone, QrCode, Search, ShieldCheck, ShoppingBag, Sparkles, Stethoscope, Store, Users, Video, Pill,
 } from 'lucide-react'
 import { api } from '../../api/client'
 import { CUSTOMER_FAQ, CUSTOMER_LEAD_NOTE } from '../../data/constants'
@@ -14,8 +14,8 @@ type LeadForm = { full_name: string; phone: string; interest?: string }
 type Doctor = { id?: number; full_name: string; doctor_specialty: string; doctor_license?: string; avatar_url: string; doctor_online?: boolean; next_slot_at?: string | null }
 type Slot = { id: number; starts_at: string; duration_min: number; capacity: number; booked: number; seats_left: number; doctor_name: string; doctor_specialty: string; doctor_license?: string; avatar_url: string }
 
-const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const v = (vars: Record<string, string | number>) => vars as CSSProperties
+export const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+export const v = (vars: Record<string, string | number>) => vars as CSSProperties
 
 // ============================================================
 // Nội dung
@@ -55,7 +55,7 @@ const FALLBACK_DOCTORS: Doctor[] = [
   { full_name: 'BS. Vũ Đình Phúc', doctor_specialty: 'Tai Mũi Họng', avatar_url: '/assets/doctors/dr-phuc.jpg' },
 ]
 
-const CONDITIONS = ['Cảm cúm', 'Viêm mũi họng', 'Dị ứng da · mề đay', 'Nấm da', 'Đau mắt đỏ', 'Đau đầu do căng thẳng', 'Đau nửa đầu', 'Viêm dạ dày', 'Trào ngược', 'Táo bón', 'COVID-19']
+export const CONDITIONS = ['Cảm cúm', 'Viêm mũi họng', 'Dị ứng da · mề đay', 'Nấm da', 'Đau mắt đỏ', 'Đau đầu do căng thẳng', 'Đau nửa đầu', 'Viêm dạ dày', 'Trào ngược', 'Táo bón', 'COVID-19']
 
 const LEAD_INTERESTS = ['Muốn dùng BriMed', 'Tìm nhà thuốc gần nhà', 'Hỏi về chi phí khám']
 
@@ -64,7 +64,7 @@ const LEAD_INTERESTS = ['Muốn dùng BriMed', 'Tìm nhà thuốc gần nhà', '
 // ============================================================
 
 // Fade-up 600ms cho mọi phần tử [data-reveal] khi vào khung nhìn (tự bắt cả phần tử render sau)
-function useReveal(root: React.RefObject<HTMLElement>) {
+export function useReveal(root: React.RefObject<HTMLElement>) {
   useEffect(() => {
     const el = root.current
     if (!el) return
@@ -92,7 +92,7 @@ function useReveal(root: React.RefObject<HTMLElement>) {
 }
 
 // Chuông nhẹ tổng hợp bằng WebAudio — không cần file âm thanh
-function playChime() {
+export function playChime() {
   try {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext
     if (!Ctx) return
@@ -115,7 +115,7 @@ function playChime() {
   } catch { /* trình duyệt không hỗ trợ âm thanh — bỏ qua */ }
 }
 
-function SplitWords({ text, start = 0, step = 70 }: { text: string; start?: number; step?: number }) {
+export function SplitWords({ text, start = 0, step = 70 }: { text: string; start?: number; step?: number }) {
   return (
     <>
       {text.split(' ').map((w, i) => (
@@ -127,7 +127,7 @@ function SplitWords({ text, start = 0, step = 70 }: { text: string; start?: numb
   )
 }
 
-function CountUp({ to, run, prefix = '', suffix = '' }: { to: number; run: boolean; prefix?: string; suffix?: string }) {
+export function CountUp({ to, run, prefix = '', suffix = '' }: { to: number; run: boolean; prefix?: string; suffix?: string }) {
   const [n, setN] = useState(reducedMotion() ? to : 0)
   useEffect(() => {
     if (!run || reducedMotion()) { if (reducedMotion()) setN(to); return }
@@ -144,7 +144,7 @@ function CountUp({ to, run, prefix = '', suffix = '' }: { to: number; run: boole
   return <>{prefix}{n.toLocaleString('vi-VN')}{suffix}</>
 }
 
-function SectionHead({ kicker, title, text, align = 'center' }: { kicker: string; title: ReactNode; text?: string; align?: 'center' | 'left' }) {
+export function SectionHead({ kicker, title, text, align = 'center' }: { kicker: string; title: ReactNode; text?: string; align?: 'center' | 'left' }) {
   return (
     <div className={`sec-head ${align === 'left' ? 'is-left' : ''}`}>
       <span className="kicker" data-reveal><i />{kicker}</span>
@@ -198,6 +198,25 @@ function Intro({ onReveal, onDone }: { onReveal: () => void; onDone: () => void 
 // ============================================================
 // Header
 // ============================================================
+
+// Pill chuyển giữa 3 trang vai trò: Bệnh nhân · Nhà thuốc · Bác sĩ
+export function RoleSwitch({ current }: { current: 'patient' | 'pharmacy' | 'doctor' }) {
+  const items = [
+    { key: 'patient', to: '/', label: 'Dành cho bệnh nhân', Icon: Users },
+    { key: 'pharmacy', to: '/cho-nha-thuoc', label: 'Dành cho nhà thuốc', Icon: Store },
+    { key: 'doctor', to: '/cho-bac-si', label: 'Dành cho bác sĩ', Icon: Stethoscope },
+  ] as const
+  return (
+    <div className="role-switch" role="navigation" aria-label="Chọn trang theo vai trò">
+      {items.map(({ key, to, label, Icon }) => (
+        <Link key={key} to={to} className={current === key ? 'on' : ''} title={label} aria-label={label} aria-current={current === key ? 'page' : undefined}>
+          <Icon size={16} />
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 function Header({ scrolled, soundOn, onToggleSound }: { scrolled: boolean; soundOn: boolean; onToggleSound: () => void }) {
   const [open, setOpen] = useState(false)
   const links = [['#dich-vu', 'Dịch vụ'], ['#quy-trinh', 'Cách hoạt động'], ['#bac-si', 'Bác sĩ'], ['#lich-truc', 'Lịch trực'], ['#chi-phi', 'Chi phí'], ['#faq', 'Hỏi đáp']]
@@ -212,6 +231,7 @@ function Header({ scrolled, soundOn, onToggleSound }: { scrolled: boolean; sound
           {links.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
         </nav>
         <div className="lp-header-actions">
+          <RoleSwitch current="patient" />
           <button
             type="button"
             className={`sound-toggle ${soundOn ? 'is-on' : ''}`}
@@ -422,7 +442,7 @@ function Process() {
 // ============================================================
 // Bác sĩ — lời "vì sao tôi làm nghề" gõ từng ký tự khi rê chuột
 // ============================================================
-function TypeQuote({ text, active }: { text: string; active: boolean }) {
+export function TypeQuote({ text, active }: { text: string; active: boolean }) {
   const [n, setN] = useState(0)
   useEffect(() => {
     if (!active) { setN(0); return }
@@ -784,7 +804,8 @@ function FinalCta() {
         <p data-reveal style={v({ '--d': '200ms' })}>Mở camera điện thoại và quét mã BriMed tại nhà thuốc đối tác gần bạn.</p>
         <div className="final-cta" data-reveal style={v({ '--d': '300ms' })}>
           <Link className="btn-breathe" to="/auth"><QrCode size={19} /> Bắt đầu tư vấn</Link>
-          <Link className="btn-quiet" to="/nha-thuoc-doi-tac">Dành cho nhà thuốc <ArrowRight size={16} /></Link>
+          <Link className="btn-quiet" to="/cho-nha-thuoc">Dành cho nhà thuốc <ArrowRight size={16} /></Link>
+          <Link className="btn-quiet" to="/cho-bac-si">Dành cho bác sĩ <ArrowRight size={16} /></Link>
         </div>
       </div>
     </section>
@@ -808,9 +829,16 @@ function Footer() {
         </div>
         <div>
           <strong>Nhà thuốc</strong>
-          <Link to="/nha-thuoc-doi-tac">Đăng ký nhà thuốc đối tác</Link>
+          <Link to="/cho-nha-thuoc">Trang dành cho nhà thuốc</Link>
+          <Link to="/nha-thuoc-doi-tac">Đăng ký đối tác</Link>
           <Link to="/goi-1-thang-brimed-nha-thuoc">6 tháng đầu — 500.000đ/tháng</Link>
           <Link to="/goi-3-thang-brimed-nha-thuoc">Sau 6 tháng đầu — 900.000đ/tháng</Link>
+        </div>
+        <div>
+          <strong>Bác sĩ</strong>
+          <Link to="/cho-bac-si">Trang dành cho bác sĩ</Link>
+          <Link to="/auth">Mở tài khoản nhận ca trực</Link>
+          <span>Thù lao 15.000đ/lượt khám</span>
         </div>
         <div>
           <strong>Hỗ trợ</strong>

@@ -8,6 +8,8 @@ import AppShell from './components/layout/AppShell'
 import Home from './pages/Home'
 import PackagePage from './pages/PackagePage'
 import Partner from './pages/Partner'
+import PharmacyLanding from './pages/PharmacyLanding'
+import DoctorLanding from './pages/DoctorLanding'
 import Auth from './pages/Auth'
 import PatientDashboard from './pages/patient/Dashboard'
 import HealthProfile from './pages/patient/HealthProfile'
@@ -48,6 +50,8 @@ export default function App() {
       <Routes>
         {/* Công khai */}
         <Route path="/" element={<Home />} />
+        <Route path="/cho-nha-thuoc" element={<PharmacyLanding />} />
+        <Route path="/cho-bac-si" element={<DoctorLanding />} />
         <Route path="/nha-thuoc-doi-tac" element={<Partner />} />
         <Route path="/goi-1-thang-brimed-nha-thuoc" element={<PackagePage pkg="1" />} />
         <Route path="/goi-3-thang-brimed-nha-thuoc" element={<PackagePage pkg="3" />} />

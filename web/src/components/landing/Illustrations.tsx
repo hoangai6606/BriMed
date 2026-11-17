@@ -269,6 +269,119 @@ export function LeafSprig({ className = '' }: { className?: string }) {
   )
 }
 
+// 6) Standee BriMed tại quầy nhà thuốc — khách quét mã, toa về tay
+// (dùng cho landing dành cho nhà thuốc đối tác)
+export function SceneStandee() {
+  return (
+    <svg viewBox="0 0 320 240" role="img" aria-label="Minh họa standee mã QR BriMed tại quầy nhà thuốc">
+      <rect width="320" height="240" fill={C.sand} />
+      <Sunbeams id="st" />
+      {/* sàn */}
+      <rect x="0" y="196" width="320" height="44" fill={C.paper} />
+      {/* kệ thuốc mờ phía sau */}
+      <rect x="12" y="26" width="130" height="6" rx="3" fill={C.sandDeep} />
+      <rect x="12" y="72" width="130" height="6" rx="3" fill={C.sandDeep} />
+      {[18, 40, 60, 84, 106, 126].map((x, i) => (
+        <rect key={x} x={x} y={i % 2 ? 8 : 14} width={i % 3 === 0 ? 14 : 12} height={i % 2 ? 18 : 12} rx="3"
+          fill={[C.blush, C.sky, C.paper, C.sage, C.blush, C.sky][i]} opacity=".8" />
+      ))}
+      {/* standee */}
+      <g className="ill-float">
+        <rect x="150" y="34" width="76" height="128" rx="12" fill="#fff" stroke={C.sandDeep} strokeWidth="2" />
+        <rect x="160" y="46" width="56" height="56" rx="8" fill={C.mist} />
+        {/* mã QR rút gọn */}
+        {[0, 1, 2].map((r) => [0, 1, 2].map((c) => (
+          <rect key={`${r}${c}`} x={166 + c * 14} y={52 + r * 14} width="10" height="10" rx="2"
+            fill={(r + c) % 2 ? C.blueDark : C.ink} opacity=".85" />
+        )))}
+        <rect x="166" y="52" width="10" height="10" rx="2" fill={C.blue} />
+        <rect x="160" y="110" width="56" height="6" rx="3" fill={C.sky} />
+        <rect x="160" y="122" width="40" height="6" rx="3" fill={C.blush} />
+        <circle className="ill-pulse" cx="218" cy="42" r="5" fill="#22c55e" />
+        {/* chân đế */}
+        <rect x="176" y="162" width="10" height="30" rx="4" fill={C.sandDeep} />
+        <rect x="158" y="190" width="60" height="8" rx="4" fill={C.ink} />
+      </g>
+      {/* tay cầm điện thoại quét */}
+      <g className="ill-bob">
+        <rect x="216" y="120" width="44" height="70" rx="10" fill={C.ink} transform="rotate(-14 238 155)" />
+        <rect x="221" y="126" width="34" height="56" rx="7" fill="#fff" transform="rotate(-14 238 155)" />
+        <path d="M226 166 l12 -12 m0 0 l-5 1 m5 -1 l-1 5" stroke={C.pink} strokeWidth="2.5" strokeLinecap="round" fill="none" transform="rotate(-14 238 155)" />
+      </g>
+      {/* chậu cây */}
+      <path d="M52 200 L80 200 L75 170 L57 170 Z" fill="#fff" stroke={C.sandDeep} strokeWidth="1.5" />
+      <Leaf x={66} y={170} r={-80} s={1} />
+      <Leaf x={66} y={172} r={-130} s={0.8} />
+      <Leaf x={68} y={174} r={-40} s={0.75} fill="#9cc4ab" />
+      {/* bong bóng "toa về tay" */}
+      <g className="ill-bob">
+        <rect x="196" y="24" width="102" height="34" rx="12" fill="#fff" stroke={C.sandDeep} strokeWidth="1.5" />
+        <rect x="206" y="34" width="58" height="5" rx="2.5" fill={C.sky} />
+        <rect x="206" y="44" width="38" height="5" rx="2.5" fill={C.blush} />
+      </g>
+    </svg>
+  )
+}
+
+// 7) Lịch trực & thù lao bác sĩ — đồng hồ, khung slot, đồng xu tích lũy
+// (dùng cho landing dành cho bác sĩ)
+export function SceneSchedule() {
+  return (
+    <svg viewBox="0 0 320 240" role="img" aria-label="Minh họa lịch trực linh hoạt và thù lao theo toa của bác sĩ">
+      <rect width="320" height="240" fill={C.mist} />
+      <Sunbeams id="sd" />
+      {/* đồng hồ */}
+      <g className="ill-float">
+        <circle cx="82" cy="86" r="44" fill="#fff" stroke={C.sandDeep} strokeWidth="2" />
+        <circle cx="82" cy="86" r="37" fill={C.paper} />
+        <path d="M82 55 v6 M82 111 v6 M51 86 h6 M107 86 h6" stroke={C.ink} strokeWidth="2" strokeLinecap="round" opacity=".35" />
+        <path d="M82 86 L82 62" stroke={C.ink} strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M82 86 L100 94" stroke={C.pink} strokeWidth="3" strokeLinecap="round" />
+        <circle cx="82" cy="86" r="3.5" fill={C.blue} />
+        <g className="ill-clock-hand">
+          <path d="M82 86 L82 62" stroke={C.blue} strokeWidth="2" strokeLinecap="round" opacity=".45" />
+        </g>
+      </g>
+      {/* các khung slot trực */}
+      <g>
+        <rect x="150" y="30" width="140" height="34" rx="10" fill="#fff" stroke={C.sage} strokeWidth="2" />
+        <rect x="158" y="40" width="46" height="6" rx="3" fill={C.sky} />
+        <rect x="158" y="50" width="66" height="5" rx="2.5" fill={C.sandDeep} />
+        <circle cx="274" cy="47" r="9" fill={C.sage} />
+        <path d="M270 47 l3 3 l6 -7" stroke={C.sageDeep} strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      </g>
+      <g className="ill-bob">
+        <rect x="150" y="74" width="140" height="34" rx="10" fill="#fff" stroke={C.blush} strokeWidth="2" />
+        <rect x="158" y="84" width="46" height="6" rx="3" fill={C.blush} />
+        <rect x="158" y="94" width="60" height="5" rx="2.5" fill={C.sandDeep} />
+        <rect x="258" y="80" width="26" height="20" rx="6" fill={C.blushMist} />
+        <path d="M262 90 h18 M262 96 h12" stroke={C.pink} strokeWidth="2" strokeLinecap="round" />
+      </g>
+      <g>
+        <rect x="150" y="118" width="140" height="34" rx="10" fill={C.paper} stroke={C.sandDeep} strokeWidth="2" strokeDasharray="5 5" />
+        <rect x="158" y="128" width="46" height="6" rx="3" fill={C.sandDeep} />
+        <rect x="158" y="138" width="54" height="5" rx="2.5" fill={C.sandDeep} opacity=".6" />
+        <text x="274" y="140" textAnchor="middle" fontSize="13" fill={C.ink} opacity=".4" fontWeight="600">+</text>
+      </g>
+      {/* dòng thù lao */}
+      <g className="ill-bob">
+        <rect x="30" y="150" width="180" height="56" rx="14" fill="#fff" stroke={C.sky} strokeWidth="2" />
+        <circle cx="56" cy="178" r="13" fill={C.blush} />
+        <text x="56" y="183" textAnchor="middle" fontSize="13" fontWeight="700" fill={C.pink}>đ</text>
+        <rect x="80" y="164" width="78" height="7" rx="3.5" fill={C.sky} />
+        <rect x="80" y="178" width="98" height="7" rx="3.5" fill={C.mist} />
+        <rect x="80" y="192" width="56" height="5" rx="2.5" fill={C.sandDeep} />
+        <g className="ill-notify">
+          <circle cx="196" cy="158" r="10" fill={C.blue} />
+          <path d="M191 158 h10 M196 153 v10" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+        </g>
+      </g>
+      <Leaf x={278} y={196} r={-40} s={0.9} />
+      <Leaf x={290} y={206} r={-120} s={0.65} fill="#9cc4ab" />
+    </svg>
+  )
+}
+
 // Đường nhịp tim (ECG) — dùng trong màn mở đầu & thanh tiến trình
 export function HeartbeatPath({ className = '' }: { className?: string }) {
   return (

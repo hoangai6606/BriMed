@@ -723,3 +723,12 @@
   .lp2 .ribbon-track { animation: none; }
   .lp2 .word > span, .lp2 [data-reveal] { opacity: 1; transform: none; filter: none; }
 }
+
+/* Pill chuyển trang theo vai trò (Bệnh nhân · Nhà thuốc · Bác sĩ) — dùng chung 3 landing */
+.lp2 .role-switch { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .78); border: 1px solid var(--sand-deep); }
+.lp2 .role-switch a { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; color: var(--ink-2); transition: background .25s var(--ease), color .25s var(--ease), box-shadow .25s var(--ease); }
+.lp2 .role-switch a:hover { background: var(--mist); color: var(--blue); }
+.lp2 .role-switch a.on { background: var(--blue); color: #fff; box-shadow: 0 6px 16px -6px rgba(13, 113, 226, .65); }
+@media (max-width: 640px) {
+  .lp2 .role-switch a { width: 28px; height: 28px; }
+}
