@@ -157,7 +157,7 @@ export default function PharmacyInventory() {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm thuốc vào kho">
         <div className="space-y-3.5">
           <div>
-            <label className="label" htmlFor="inv-med">Thuốc (danh mục chuẩn BriMed)</label>
+            <label className="label" htmlFor="inv-med">Thuốc</label>
             <select
               id="inv-med"
               className="input"

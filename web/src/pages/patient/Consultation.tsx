@@ -254,7 +254,7 @@ export default function Consultation() {
       {step === 2 && selected && (
       <form onSubmit={submit} className="card p-4 space-y-4">
         <div>
-          <h2 className="section-title">Form toa thuốc nhanh (TT 30/2023)</h2>
+          <h2 className="section-title">Form toa thuốc nhanh</h2>
           <p className="text-[13px] text-slate-500 mt-1">Khách quét QR tại quầy · Dược sĩ có thể hỗ trợ thao tác hộ</p>
         </div>
 
@@ -268,13 +268,13 @@ export default function Consultation() {
             <input id="c-phone" className="input" required inputMode="tel" value={f.phone} onChange={(e) => set('phone', e.target.value)} />
           </div>
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="c-cccd">CCCD / Số định danh (cho phép nhập tay nếu tra không được) *</label>
+            <label className="label" htmlFor="c-cccd">CCCD / Số định danh *</label>
             <input id="c-cccd" className="input" required inputMode="numeric" value={f.cccd} onChange={(e) => set('cccd', e.target.value)} />
           </div>
         </div>
 
         <div>
-          <label className="label" htmlFor="c-disease">Triệu chứng chính (danh mục TT 30/2023) *</label>
+          <label className="label" htmlFor="c-disease">Triệu chứng chính *</label>
           <select
             id="c-disease"
             className="input"
@@ -286,7 +286,7 @@ export default function Consultation() {
             {DISEASE_GROUPS.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
-            <option value="Khác (ngoài danh mục)">Khác (ngoài danh mục) – sẽ được chuyển khám trực tiếp</option>
+            <option value="Khác (ngoài danh mục)">Khác – sẽ được chuyển khám trực tiếp</option>
           </select>
         </div>
 
@@ -301,7 +301,7 @@ export default function Consultation() {
 
         {/* Sàng lọc */}
         <div className="rounded-xl border border-slate-200 p-3.5 space-y-3 bg-slate-50/60">
-          <div className="text-[13.5px] font-bold text-bluedark">Sàng lọc an toàn (bắt buộc)</div>
+          <div className="text-[13.5px] font-bold text-bluedark">Sàng lọc an toàn</div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-[13.5px] font-medium">
               <input type="checkbox" className="w-[18px] h-[18px] accent-[#0d71e2]" checked={f.fever} onChange={(e) => set('fever', e.target.checked)} /> Có sốt
@@ -319,7 +319,7 @@ export default function Consultation() {
           </label>
           <label className="flex items-center gap-2 text-[13.5px] font-medium">
             <input type="checkbox" className="w-[18px] h-[18px] accent-[#0d71e2]" checked={f.is_child} onChange={(e) => set('is_child', e.target.checked)} />
-            Đăng ký cho trẻ nhỏ (dưới 6 tuổi)
+            Đăng ký cho trẻ nhỏ
           </label>
           <div>
             <span className="label !mb-1">Thai kỳ *</span>

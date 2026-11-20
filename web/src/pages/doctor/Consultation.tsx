@@ -178,7 +178,7 @@ export default function DoctorConsultation() {
       {/* Call widget */}
       {!decided && (
         <section className="card p-4">
-          <h2 className="section-title mb-3">Cuộc gọi xác nhận (video · tối đa 7 phút)</h2>
+          <h2 className="section-title mb-3">Cuộc gọi xác nhận — video tối đa 7 phút</h2>
           {videoOpen && (
             <VideoCallRoom consultationId={id!} role="doctor" onEnded={endVideoCall} />
           )}
@@ -270,7 +270,7 @@ export default function DoctorConsultation() {
       <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="Từ chối kê đơn / Chuyển khám trực tiếp">
         <div className="space-y-3.5">
           <div>
-            <label className="label" htmlFor="rj-reason">Lý do từ chối (bắt buộc, hiển thị cho bệnh nhân) *</label>
+            <label className="label" htmlFor="rj-reason">Lý do từ chối *</label>
             <textarea id="rj-reason" rows={3} className="input" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="VD: Nghi ngờ viêm phổi – ngoài danh mục TT 30/2023, chuyển khám trực tiếp." />
           </div>
           <div className="rounded-xl bg-lightblue/40 p-3 text-[12.5px] text-bluedark">

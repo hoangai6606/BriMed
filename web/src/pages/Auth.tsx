@@ -67,7 +67,7 @@ export default function Auth() {
                   <input id="au-name" className="input" required value={form.full_name} onChange={(e) => set('full_name', e.target.value)} />
                 </div>
                 <div>
-                  <label className="label" htmlFor="au-cccd">CCCD / Số định danh (nhập tay được)</label>
+                  <label className="label" htmlFor="au-cccd">CCCD / Số định danh</label>
                   <input id="au-cccd" className="input" inputMode="numeric" value={form.cccd} onChange={(e) => set('cccd', e.target.value)} placeholder="030xxxxxxxx" />
                 </div>
               </>

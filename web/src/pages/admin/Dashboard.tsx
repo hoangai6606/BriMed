@@ -395,7 +395,7 @@ export default function AdminDashboard() {
 
       {tab === 'leads' && (
         <section className="card p-4">
-          <h2 className="section-title flex items-center gap-2 mb-2"><UserPlus size={18} className="text-pink" /> Khách hàng quan tâm (form đăng ký trên trang chủ)</h2>
+          <h2 className="section-title flex items-center gap-2 mb-2"><UserPlus size={18} className="text-pink" /> Khách hàng quan tâm</h2>
           {leads.length === 0 ? (
             <p className="text-[13.5px] text-slate-400 text-center py-3">Chưa có khách hàng nào đăng ký.</p>
           ) : (
