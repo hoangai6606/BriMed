@@ -586,7 +586,7 @@ export function DeltaPill({ value, invert = false }: { value: number | null; inv
 
 export function ChartCard({ title, sub, icon, right, children, className = '' }: { title: ReactNode; sub?: ReactNode; icon?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`card p-4 sm:p-5 ${className}`}>
+    <section className={`card relative p-4 sm:p-5 ${className}`}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-lightblue/50 text-primary">{icon}</span>}
