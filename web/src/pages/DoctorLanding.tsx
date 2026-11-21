@@ -279,6 +279,14 @@ const DOCTOR_QUOTES = [
     name: 'BS. Lê Hoàng Sơn', spec: 'Da Liễu · tối thứ 3 & 5', avatar: '/assets/doctors/dr-son.jpg',
     why: 'Da là thứ người ta hay tự chữa nhất. Tôi ở đây để bạn không phải tự đoán — hai buổi tối mỗi tuần, không ảnh hưởng giờ phòng khám của tôi.',
   },
+  {
+    name: 'BS. Phạm Ngọc Anh', spec: 'Nội tổng quát – Hô hấp · sáng thứ 2 & 6', avatar: '/assets/doctors/dr-anh.jpg',
+    why: 'Hỏi kỹ hai phút để bạn yên tâm cả tuần — đó là cách tôi hiểu nghề thầy thuốc. BriMed chỉ giúp tôi gặp được người cần đúng lúc.',
+  },
+  {
+    name: 'BS. Vũ Đình Phúc', spec: 'Tai Mũi Họng · tối thứ 4 & 7', avatar: '/assets/doctors/dr-phuc.jpg',
+    why: 'Một toa thuốc đúng bắt đầu từ một câu hỏi đúng, và một người chịu lắng nghe. Ở BriMed, hai điều đó chưa bao giờ bị bỏ qua.',
+  },
 ]
 
 function QuoteCard({ q, i }: { q: typeof DOCTOR_QUOTES[number]; i: number }) {

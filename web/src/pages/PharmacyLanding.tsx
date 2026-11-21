@@ -273,30 +273,65 @@ function Process() {
   )
 }
 
-function Quote() {
+const PHARMACY_QUOTES = [
+  {
+    name: 'DS. Nguyễn Minh Châu', place: 'Nhà thuốc Minh Châu · P.17, Gò Vấp', avatar: '/assets/doctors/dr-minh.jpg', online: true,
+    why: 'Tôi không cần bán thuốc online — khách vào quầy, quét mã, có toa bác sĩ trong vài phút. Phần đối chiếu kho hệ thống lo, tôi chỉ làm đúng nghề dược sĩ: đọc toa, tư vấn, trao thuốc.',
+  },
+  {
+    name: 'DS. Trần An Khang', place: 'Nhà thuốc An Khang · P.6, Gò Vấp', avatar: '/assets/doctors/dr-anh.jpg', online: true,
+    why: 'Ban đầu chỉ thử vì tháng đầu miễn phí. Hai tháng sau, khách quen quay lại nhờ có bác sĩ tại quầy — doanh thu thuốc tăng mà tôi không phải đi làm thêm giờ nào.',
+  },
+  {
+    name: 'DS. Lê Thanh Đạt', place: 'Nhà thuốc Thanh Đạt · P.3, Gò Vấp', avatar: '/assets/doctors/dr-son.jpg', online: true,
+    why: 'Cái tôi thích nhất là mọi toa đều có mã ký số — dược sĩ đối chiếu trước khi cấp, khỏi lo sai sót. Đối soát cuối tháng nhìn một màn là hết.',
+  },
+]
+
+function PharmQuoteCard({ q, i }: { q: typeof PHARMACY_QUOTES[number]; i: number }) {
   const [active, setActive] = useState(false)
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!window.matchMedia('(hover: none)').matches || !ref.current || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => setActive(e.isIntersecting), { threshold: 0.6 })
+    io.observe(ref.current)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <article
+      ref={ref}
+      className={`doctor ${active ? 'is-active' : ''}`}
+      data-reveal
+      style={v({ '--d': `${i * 100}ms` })}
+      tabIndex={0}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocus={() => setActive(true)}
+      onBlur={() => setActive(false)}
+    >
+      <figure className="doctor-photo kb">
+        <img src={q.avatar} alt={q.name} loading="lazy" />
+        <span className={`doctor-status ${q.online ? 'on' : ''}`}>Đang mở quầy</span>
+      </figure>
+      <div className="doctor-body">
+        <h3>{q.name}</h3>
+        <p className="doctor-spec"><Store size={14} /> {q.place}</p>
+        <TypeQuote text={q.why} active={active} />
+      </div>
+    </article>
+  )
+}
+
+function Quote() {
   return (
     <section className="sec doctors" id="dong-hanh">
       <SectionHead
         kicker="Người trong nghề nói"
         title={<>Dược sĩ đối tác<br /><em>chia sẻ trải nghiệm.</em></>}
-        text="Nhà thuốc đầu tiên của BriMed tại Gò Vấp — nơi tất cả bắt đầu bằng một chiếc standee nhỏ."
+        text="Ba nhà thuốc đầu tiên của BriMed tại Gò Vấp — nơi tất cả bắt đầu bằng một chiếc standee nhỏ."
       />
-      <div className="doctor-row" onMouseEnter={() => setActive(true)} onMouseLeave={() => setActive(false)}>
-        <article className={`doctor ${active ? 'is-active' : ''}`} data-reveal tabIndex={0} onFocus={() => setActive(true)} onBlur={() => setActive(false)}>
-          <figure className="doctor-photo kb">
-            <img src="/assets/doctors/dr-minh.jpg" alt="DS. Nguyễn Minh Châu — Nhà thuốc Minh Châu" loading="lazy" />
-            <span className="doctor-status on">Đang mở quầy</span>
-          </figure>
-          <div className="doctor-body">
-            <h3>DS. Nguyễn Minh Châu</h3>
-            <p className="doctor-spec"><Store size={14} /> Nhà thuốc Minh Châu · P.17, Gò Vấp</p>
-            <TypeQuote
-              text="Tôi không cần bán thuốc online — khách vào quầy, quét mã, có toa bác sĩ trong vài phút. Phần đối chiếu kho hệ thống lo, tôi chỉ làm đúng nghề dược sĩ: đọc toa, tư vấn, trao thuốc."
-              active={active}
-            />
-          </div>
-        </article>
+      <div className="doctor-row row-3">
+        {PHARMACY_QUOTES.map((q, i) => <PharmQuoteCard key={q.name} q={q} i={i} />)}
       </div>
     </section>
   )
