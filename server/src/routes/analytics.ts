@@ -12,17 +12,17 @@ import { pool, ensureDb } from '../db'
 
 const r = Router()
 
-const TZ = 'Asia/Ho_Chi_Minh'
+export const TZ = 'Asia/Ho_Chi_Minh'
 // Chuyển cột ISO-UTC (TEXT) sang giờ Việt Nam để bucket ngày/tuần/tháng đúng lịch địa phương
-const VN = (col: string) => `(${col}::timestamp AT TIME ZONE 'UTC' AT TIME ZONE '${TZ}')`
+export const VN = (col: string) => `(${col}::timestamp AT TIME ZONE 'UTC' AT TIME ZONE '${TZ}')`
 
-const q = async (sql: string, params: any[] = []) => pool.query(sql, params).then((x) => x.rows)
-const num = (v: any) => (v == null ? 0 : Number(v))
-const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0)
-const deltaPct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null)
+export const q = async (sql: string, params: any[] = []) => pool.query(sql, params).then((x) => x.rows)
+export const num = (v: any) => (v == null ? 0 : Number(v))
+export const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0)
+export const deltaPct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null)
 
 // Khóa bucket theo giờ Việt Nam — thống nhất giữa SQL và JS
-function bucketOf(days: number): 'day' | 'week' | 'month' {
+export function bucketOf(days: number): 'day' | 'week' | 'month' {
   return days <= 30 ? 'day' : days <= 90 ? 'week' : 'month'
 }
 const FMT = { day: 'YYYY-MM-DD', week: 'YYYY-MM-DD', month: 'YYYY-MM' } as const
@@ -53,7 +53,7 @@ export function keyOf(d: Date, bucket: 'day' | 'week' | 'month') {
 }
 
 // Danh sách bucket liên tục từ `from` đến hiện tại (lấp khoảng trống = 0)
-function allKeys(from: Date, bucket: 'day' | 'week' | 'month'): string[] {
+export function allKeys(from: Date, bucket: 'day' | 'week' | 'month'): string[] {
   const keys: string[] = []
   const seen = new Set<string>()
   const stepMs = bucket === 'day' ? 86400_000 : 4 * 86400_000 // week/month duyệt theo 4 ngày cho đủ nhớ
@@ -395,6 +395,82 @@ r.get('/', async (req, res) => {
       new_visitors: funnel.new_visitors, returning_visitors: funnel.returning_visitors,
     }
 
+    // ---------------- Nhóm query song song 5: chi tiết theo vai trò (roles_detail) ----------------
+    const freshSeen = new Date(Date.now() - 10 * 60000).toISOString()
+    const [docBoard, pharmBoard, pharmRevRows, diseaseMix, subRows, patientRows, topPatients] = await Promise.all([
+      // Bảng xếp hạng bác sĩ (top 8 theo số ca trong kỳ)
+      q(`SELECT u.full_name AS name,
+           (SELECT COUNT(*)::int FROM consultations c WHERE c.doctor_id = u.id AND c.created_at >= $1) AS consults,
+           (SELECT COUNT(*)::int FROM consultations c WHERE c.doctor_id = u.id AND c.status = 'approved' AND c.created_at >= $1) AS approved,
+           (SELECT COUNT(*)::int FROM consultations c WHERE c.doctor_id = u.id AND c.status = 'rejected' AND c.created_at >= $1) AS rejected,
+           (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (c.decided_at::timestamp - c.created_at::timestamp)) / 60)::numeric, 1)
+              FROM consultations c WHERE c.doctor_id = u.id AND c.decided_at IS NOT NULL AND c.decided_at >= $1) AS avg_wait,
+           (SELECT COUNT(*)::int FROM prescriptions p WHERE p.doctor_id = u.id AND p.status IN ('issued','dispensed') AND p.created_at >= $1) AS rx,
+           (SELECT COUNT(*)::int FROM prescriptions p WHERE p.doctor_id = u.id AND p.has_antibiotic = 1 AND p.status IN ('issued','dispensed') AND p.created_at >= $1) AS ab,
+           (SELECT COALESCE(SUM(t.amount_vnd), 0)::bigint FROM transactions t WHERE t.user_id = u.id AND t.type = 'doctor_fee' AND t.created_at >= $1) AS earnings,
+           (u.doctor_online = 1 AND u.last_seen_at != '' AND u.last_seen_at >= $2) AS online
+         FROM users u WHERE u.role = 'doctor'
+         ORDER BY consults DESC NULLS LAST, u.full_name LIMIT 8`, [fromIso, freshSeen]),
+      // Bảng nhà thuốc (đơn + kho) — doanh thu quote parse riêng ở query dưới
+      q(`SELECT p.id, p.name, p.subscription_plan AS plan, p.csdl_synced,
+           (SELECT COUNT(*)::int FROM orders o WHERE o.pharmacy_id = p.id AND o.created_at >= $1) AS orders,
+           (SELECT COUNT(*)::int FROM orders o WHERE o.pharmacy_id = p.id AND o.status = 'completed' AND o.completed_at >= $1) AS completed,
+           (SELECT COUNT(*)::int FROM inventory i WHERE i.pharmacy_id = p.id) AS inv_lines,
+           (SELECT COUNT(*)::int FROM inventory i WHERE i.pharmacy_id = p.id AND i.stock <= 0) AS out_lines,
+           (SELECT COUNT(*)::int FROM inventory i WHERE i.pharmacy_id = p.id AND i.stock > 0 AND i.stock <= i.low_stock_threshold) AS low_lines
+         FROM pharmacies p ORDER BY orders DESC NULLS LAST, p.name`, [fromIso]),
+      q(`SELECT pharmacy_id, quote FROM orders WHERE status = 'completed' AND completed_at >= $1`, [fromIso]),
+      // Cơ cấu nhóm bệnh toàn nền tảng trong kỳ
+      q(`SELECT disease_group AS g, COUNT(*)::int AS c FROM consultations WHERE created_at >= $1 GROUP BY 1 ORDER BY c DESC LIMIT 8`, [fromIso]),
+      // Yêu cầu đổi hoạt chất theo bucket + trạng thái
+      q(`SELECT ${keyExpr('created_at')} AS key, COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+           COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
+           COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
+         FROM substitution_requests WHERE created_at >= $1 GROUP BY 1`, [fromIso]),
+      // Nhịp bệnh nhân: BN mới theo bucket (chỉ role patient)
+      q(`SELECT ${keyExpr('created_at')} AS key, COUNT(*)::int AS c FROM users WHERE role = 'patient' AND created_at >= $1 GROUP BY 1`, [fromIso]),
+      // Top bệnh nhân hoạt động nhất trong kỳ
+      q(`SELECT u.full_name AS name, COUNT(*)::int AS c FROM consultations cs
+         JOIN users u ON u.id = cs.patient_id WHERE cs.created_at >= $1 GROUP BY 1 ORDER BY c DESC LIMIT 6`, [fromIso]),
+    ])
+
+    const revByPharm = new Map<number, number>()
+    pharmRevRows.forEach((row: any) => {
+      let total = 0
+      try { total = Number(JSON.parse(row.quote || '{}').total) || 0 } catch { /* quote lỗi định dạng */ }
+      revByPharm.set(num(row.pharmacy_id), (revByPharm.get(num(row.pharmacy_id)) || 0) + total)
+    })
+
+    const subBykey = new Map(subRows.map((x) => [x.key, x]))
+    const patByKey = new Map(patientRows.map((x) => [x.key, x]))
+
+    const roles_detail = {
+      doctors_board: docBoard.map((x: any) => ({
+        name: x.name, consults: num(x.consults), approved: num(x.approved), rejected: num(x.rejected),
+        avg_wait: num(x.avg_wait), rx: num(x.rx), antibiotic_rate: pct(num(x.ab), num(x.rx)),
+        earnings_vnd: num(x.earnings), online: !!x.online,
+      })),
+      pharmacies_board: pharmBoard.map((x: any) => ({
+        name: x.name, plan: x.plan, csdl_synced: !!x.csdl_synced,
+        orders: num(x.orders), completed: num(x.completed),
+        revenue_vnd: revByPharm.get(num(x.id)) || 0,
+        inv_lines: num(x.inv_lines), out_lines: num(x.out_lines), low_lines: num(x.low_lines),
+      })),
+      disease_mix: diseaseMix.map((x) => ({ group: x.g, count: num(x.c) })),
+      sub_series: keys.map((key) => {
+        const x = subBykey.get(key)
+        return { key, total: num(x?.total), pending: num(x?.pending), approved: num(x?.approved), rejected: num(x?.rejected) }
+      }),
+      sub_status: {
+        pending: subRows.reduce((s, x) => s + num(x.pending), 0),
+        approved: subRows.reduce((s, x) => s + num(x.approved), 0),
+        rejected: subRows.reduce((s, x) => s + num(x.rejected), 0),
+      },
+      patient_series: keys.map((key) => ({ key, value: num(patByKey.get(key)?.c) })),
+      top_patients: topPatients.map((x) => ({ name: x.name, count: num(x.c) })),
+    }
+
     res.json({
       generated_at: new Date().toISOString(),
       range: { days, bucket, from: fromIso },
@@ -404,6 +480,7 @@ r.get('/', async (req, res) => {
       series,
       funnel, roles, heatmap, top_paths: topPaths,
       ops, compliance, revenue, supply, retention,
+      roles_detail,
     })
   } catch (e) {
     console.error(e)

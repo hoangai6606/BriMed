@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import { pool, nowIso } from '../db'
 import { requireAuth, requireRole } from '../auth'
+import doctorAnalyticsRoutes from './doctorAnalytics'
 
 const r = Router()
 r.use(requireAuth, requireRole('doctor'))
+r.use('/analytics', doctorAnalyticsRoutes)
 
 async function attachNames(c: any) {
   if (!c) return c

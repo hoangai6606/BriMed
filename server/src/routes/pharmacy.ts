@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import { pool, nowIso } from '../db'
 import { requireAuth, requireRole } from '../auth'
+import pharmacyAnalyticsRoutes from './pharmacyAnalytics'
 
 const r = Router()
 r.use(requireAuth, requireRole('pharmacy'))
+r.use('/analytics', pharmacyAnalyticsRoutes)
 
 async function myPharmacy(req: any) {
   const p = (await pool.query('SELECT * FROM pharmacies WHERE id = $1', [req.user.pharmacy_id])).rows[0]

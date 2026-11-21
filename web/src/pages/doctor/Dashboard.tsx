@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, CalendarClock, ClipboardList, Plus, Trash2, UserRound, PhoneCall, CheckCircle2, XCircle, Lock } from 'lucide-react'
+import {
+  AlarmClock, CalendarClock, ClipboardList, Plus, Trash2, UserRound, PhoneCall, CheckCircle2,
+  XCircle, Lock, Activity, TrendingUp, Pill, HandCoins, ShieldCheck, Stethoscope,
+} from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
-import { api, timeAgo } from '../../api/client'
+import { api, timeAgo, fmtVnd } from '../../api/client'
 import { PageLoading } from '../../components/common/Misc'
 import { useUi } from '../../store/ui'
 import { CONSULT_STATUS } from '../../data/constants'
+import {
+  Sparkline, LineChart, Donut, Heatmap, RingStat, ChartCard, ChartEmpty, fmtInt,
+} from '../../components/charts'
 
 function SlaChip({ createdAt }: { createdAt: string }) {
   const [, tick] = useState(0)
@@ -25,11 +31,142 @@ function SlaChip({ createdAt }: { createdAt: string }) {
   )
 }
 
+const RANGES = [7, 30, 90]
+
+function bucketLabel(key: string, bucket: string) {
+  if (bucket === 'month') return `T${Number(key.split('-')[1])}`
+  const [, m, d] = key.split('-')
+  return `${Number(d)}/${Number(m)}`
+}
+
+// ═══ Khối phân tích vận hành & kinh doanh (gọi /doctor/analytics) ═══
+function DoctorAnalytics() {
+  const [days, setDays] = useState(30)
+  const [data, setData] = useState<any>(null)
+
+  useEffect(() => {
+    setData(null)
+    api(`/doctor/analytics?days=${days}`).then(setData).catch(() => setData({ error: true }))
+  }, [days])
+
+  const buckets = useMemo(
+    () => (data?.series ? data.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, data.range.bucket) })) : []),
+    [data],
+  )
+  if (!data) return <div className="card p-4"><PageLoading /></div>
+  if (data.error) return null
+
+  const k = data.kpi
+  const hasSeries = data.series.some((s: any) => s.consults > 0 || s.rx > 0)
+  const diseaseColors = ['#0d71e2', '#e8408a', '#1E8E3E', '#f59e0b', '#a6d3fd', '#B92A69', '#64748b']
+  const hasDisease = kpiHas(data.disease_mix)
+
+  return (
+    <>
+      {/* Bộ chọn khoảng thời gian */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-[20px] font-extrabold text-bluedark">Tổng quan bác sĩ</h1>
+        <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
+          {RANGES.map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition ${days === d ? 'bg-primary text-white shadow-float' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              {d} ngày
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <KpiCard label="Ca xử lý hôm nay" value={fmtInt(k.today_consults)} sub={`chờ TB ${k.wait.avg_minutes}′ · p90 ${k.wait.p90}′`} tone={k.wait.within_pct >= 80 ? 'green' : 'red'} icon={<Activity size={16} />}
+          spark={data.series.slice(-14).map((s: any) => s.consults)} color="#0d71e2" />
+        <KpiCard label="Toa phát hành hôm nay" value={fmtInt(k.today_rx)} sub={`${fmtInt(data.series.reduce((s: number, x: any) => s + x.rx, 0))} toa trong kỳ`} tone="blue" icon={<Pill size={16} />}
+          spark={data.series.slice(-14).map((s: any) => s.rx)} color="#1E8E3E" />
+        <KpiCard label="Thù lao tháng này" value={fmtVnd(k.month_earnings_vnd)} sub={`${k.month_count} lượt × 15.000đ`} tone="pink" icon={<HandCoins size={16} />}
+          spark={data.series.slice(-14).map((s: any) => s.earnings_vnd / 1000)} color="#e8408a" />
+      </div>
+
+      {/* Xu hướng ca khám + toa */}
+      <ChartCard title="Ca khám & toa phát hành" sub={`Theo ngày — cửa sổ ${days} ngày`} icon={<TrendingUp size={18} />} className="relative">
+        <LineChart
+          buckets={buckets}
+          series={[
+            { name: 'Ca nhận', color: '#0d71e2', values: data.series.map((s: any) => s.consults), area: true },
+            { name: 'Toa phát hành', color: '#1E8E3E', values: data.series.map((s: any) => s.rx) },
+            { name: 'Từ chối / chuyển khám', color: '#e8408a', values: data.series.map((s: any) => s.rejected) },
+          ]}
+        />
+        {!hasSeries && <ChartEmpty note="Chưa có ca khám nào trong kỳ này" />}
+      </ChartCard>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {/* Thù lao theo ngày */}
+        <ChartCard title="Thù lao theo ngày" sub="15.000đ mỗi lượt khám hoàn thành" icon={<HandCoins size={18} />} className="relative">
+          <LineChart
+            buckets={buckets}
+            series={[{ name: 'Thù lao (nghìn đồng)', color: '#e8408a', values: data.series.map((s: any) => Math.round(s.earnings_vnd / 1000)), area: true }]}
+            yFmt={(n) => `${n}k`}
+          />
+          <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+            <span className="badge bg-lightpink text-pink-dark">Tháng này: <b className="ml-1">{fmtVnd(k.month_earnings_vnd)}</b></span>
+            <span className="badge bg-slate-100 text-slate-600">Lũy kế: <b className="ml-1">{fmtVnd(k.total_earnings_vnd)}</b> · {k.total_count} lượt</span>
+          </div>
+        </ChartCard>
+
+        {/* Cơ cấu nhóm bệnh */}
+        <ChartCard title="Cơ cấu nhóm bệnh đã khám" sub="Trong kỳ — xem nhanh bệnh nhân chính của bạn là ai" icon={<Stethoscope size={18} />}>
+          {hasDisease ? (
+            <Donut
+              slices={data.disease_mix.map((x: any, i: number) => ({ label: x.group, value: x.count, color: diseaseColors[i % diseaseColors.length] }))}
+              center={{ value: fmtInt(data.disease_mix.reduce((s: number, x: any) => s + x.count, 0)), label: 'ca khám' }}
+            />
+          ) : <ChartEmpty note="Chưa có dữ liệu nhóm bệnh trong kỳ" />}
+        </ChartCard>
+      </div>
+
+      {/* Chất lượng: SLA + kháng sinh + gọi + slot */}
+      <ChartCard title="Chất lượng chuyên môn & vận hành" sub="Các vòng tròn hoàn thành là chỉ số cần theo sát mỗi tuần" icon={<ShieldCheck size={18} />}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <RingStat pct={k.wait.within_pct} color="#0d71e2" label="Ca đạt SLA ≤ 5 phút" sub={`chờ TB ${k.wait.avg_minutes}′ · p50 ${k.wait.p50}′ · p90 ${k.wait.p90}′`} />
+          <RingStat pct={k.antibiotic_pct} color={k.antibiotic_pct > k.threshold ? '#D93025' : '#1E8E3E'} label={`Toa có kháng sinh (ngưỡng ${k.threshold}%)`} sub="cá nhân bạn — không tính cả hệ thống" />
+          <RingStat pct={Math.min(k.avg_call_minutes / 2 * 100, 100)} color="#e8408a" label={`Gọi TB ${k.avg_call_minutes} phút`} sub={`mục tiêu 1–2′ · tổng ${fmtInt(k.call_minutes_month)} phút tháng này`} />
+          <RingStat pct={k.slots.utilization_pct} color="#f59e0b" label="Slot trực được đặt" sub={`${k.slots.booked}/${k.slots.capacity} chỗ · ${k.slots.open_slots} khung đang mở`} />
+        </div>
+      </ChartCard>
+
+      {/* Heatmap giờ bệnh nhân */}
+      <ChartCard title="Giờ bệnh nhân đặt khám" sub="Ngày trong tuần × giờ (giờ Việt Nam) — dùng để xếp khung trực đúng giờ cao điểm" icon={<CalendarClock size={18} />} className="relative">
+        <Heatmap matrix={data.heatmap} />
+        {!data.heatmap.flat().some((v: number) => v > 0) && <ChartEmpty note="Bản đồ sẽ hiện rõ sau vài ngày có ca khám" />}
+      </ChartCard>
+    </>
+  )
+}
+
+const kpiHas = (arr: any[]) => Array.isArray(arr) && arr.length > 0
+
+function KpiCard({ label, value, sub, tone, icon, spark, color }: { label: string; value: string; sub?: string; tone: 'blue' | 'green' | 'red' | 'pink'; icon: any; spark: number[]; color: string }) {
+  const toneCls = { blue: 'bg-primary', green: 'bg-mint-fg', red: 'bg-redflag-fg', pink: 'bg-pink' }[tone]
+  return (
+    <div className="card p-3.5">
+      <div className="flex items-center justify-between">
+        <span className={`w-8 h-8 rounded-xl ${toneCls} text-white flex items-center justify-center`}>{icon}</span>
+        <Sparkline values={spark} color={color} height={30} width={110} />
+      </div>
+      <div className="text-[21px] font-extrabold text-bluedark mt-1.5 leading-none">{value}</div>
+      <div className="text-[12px] text-slate-500 mt-1">{label}</div>
+      {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
 export default function DoctorDashboard() {
   const [data, setData] = useState<any>(null)
   const [patients, setPatients] = useState<any[]>([])
   const [slots, setSlots] = useState<any[]>([])
-  const [earnings, setEarnings] = useState<any>(null)
   const [slotForm, setSlotForm] = useState({ starts_at: '', duration_min: 30, capacity: 1 })
   const [slotBusy, setSlotBusy] = useState(false)
   const toast = useUi((s) => s.toast)
@@ -67,7 +204,6 @@ export default function DoctorDashboard() {
     api('/doctor/queue').then(setData).catch(() => setData({ queue: [], upcoming: [], mine: [] }))
     api('/doctor/patients').then((d) => setPatients(d.patients)).catch(() => setPatients([]))
     loadSlots()
-    api('/doctor/earnings').then(setEarnings).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -76,13 +212,17 @@ export default function DoctorDashboard() {
     return () => clearInterval(t)
   }, [load])
 
-  if (!data) return <PageLoading />
+  if (!data) return <><SeoMeta title="Tổng quan – Bác sĩ BriMed" /><PageLoading /></>
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <SeoMeta title="Hàng đợi tư vấn – Bác sĩ BriMed" />
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-extrabold text-bluedark">Hàng đợi yêu cầu tư vấn</h1>
+    <div className="space-y-4 max-w-5xl">
+      <SeoMeta title="Tổng quan – Bác sĩ BriMed" />
+
+      {/* ═══ Phần phân tích (KPI + biểu đồ) ═══ */}
+      <DoctorAnalytics />
+
+      <div className="flex items-center justify-between pt-2">
+        <h2 className="section-title !text-[17px]">Vận hành trực tiếp</h2>
         <span className="badge bg-lightpink text-pink-dark">Mục tiêu phản hồi &lt; 3–5 phút</span>
       </div>
 
@@ -133,18 +273,6 @@ export default function DoctorDashboard() {
           </ul>
         )}
       </section>
-
-      {/* Thu nhập của tôi */}
-      {earnings && (
-        <section className="card p-4 flex items-center justify-between gap-3 bg-gradient-to-r from-primary to-bluedark text-white">
-          <div>
-            <div className="text-[12px] text-white/70">Thu nhập của tôi</div>
-            <div className="text-[22px] font-extrabold">{new Intl.NumberFormat('vi-VN').format(earnings.month_vnd)}đ <span className="text-[12px] font-semibold text-white/70">tháng này · {earnings.month_count} lượt</span></div>
-            <div className="text-[11.5px] text-white/60">Lũy kế: {new Intl.NumberFormat('vi-VN').format(earnings.total_vnd)}đ · {earnings.total_count} lượt đã xử lý</div>
-          </div>
-          <PhoneCall size={30} className="opacity-40 shrink-0" />
-        </section>
-      )}
 
       {/* Lượt hẹn sắp tới (chưa đến giờ) */}
       {data.upcoming?.length > 0 && (

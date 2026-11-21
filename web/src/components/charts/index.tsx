@@ -311,6 +311,72 @@ export function StackedBarChart({
 }
 
 // ---------------------------------------------------------------------------
+// BarChart — cột dọc đơn chuỗi, bo tròn đỉnh, hover tooltip
+export function BarChart({
+  buckets, values, color = '#0d71e2', height = 220, yFmt = fmtInt,
+}: {
+  buckets: Bucket[]
+  values: number[]
+  color?: string
+  height?: number
+  yFmt?: (n: number) => string
+}) {
+  const { ref, width } = useMeasure<HTMLDivElement>()
+  const [hover, setHover] = useState<number | null>(null)
+  const w = Math.max(width, 260)
+  const padL = 40, padR = 10, padT = 14, padB = 26
+  const iw = w - padL - padR, ih = height - padT - padB
+  const max = niceMax(Math.max(...values, 1) * 1.08)
+  const slot = iw / Math.max(1, buckets.length)
+  const bw = Math.min(26, Math.max(6, slot * 0.55))
+  const X = (i: number) => padL + slot * i + slot / 2
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f))
+  const labelEvery = Math.max(1, Math.ceil(buckets.length / 6))
+  const isEmpty = values.every((v) => !v)
+
+  return (
+    <div ref={ref} className="relative w-full select-none">
+      <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }} onMouseLeave={() => setHover(null)}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={w - padR} y1={padT + ih - (t / max) * ih} y2={padT + ih - (t / max) * ih} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 5" />
+            <text x={padL - 7} y={padT + ih - (t / max) * ih + 3.5} textAnchor="end" fontSize="10" fill="#94a3b8">{yFmt(t)}</text>
+          </g>
+        ))}
+        {buckets.map((b, i) => (i % labelEvery === 0 || i === buckets.length - 1) && (
+          <text key={b.key} x={X(i)} y={height - 8} textAnchor="middle" fontSize="10" fill="#94a3b8">{b.label}</text>
+        ))}
+        {buckets.map((_, i) => {
+          const v = values[i] || 0
+          const h = (v / max) * ih
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)}>
+              <rect x={X(i) - slot / 2} y={padT} width={slot} height={ih} fill="transparent" />
+              {hover === i && <rect x={X(i) - slot / 2 + 1} y={padT} width={slot - 2} height={ih} rx="6" fill="#0d71e2" opacity="0.05" />}
+              {v > 0 && (
+                <rect x={X(i) - bw / 2} y={padT + ih - h} width={bw} height={Math.max(h, 2)}
+                  rx={Math.min(4, bw / 2.4)} fill={color} opacity={hover == null || hover === i ? 0.9 : 0.45} style={{ transition: 'opacity .15s' }} />
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      {hover != null && !isEmpty && (
+        <Tooltip host={{ width: w }} x={X(hover)}>
+          <div className="mb-1 text-[10.5px] font-semibold text-white/70">{buckets[hover].label}</div>
+          <div className="flex items-center gap-2 whitespace-nowrap text-[12px]">
+            <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+            <span className="text-white/80">{buckets[hover].label}</span>
+            <span className="ml-auto font-bold">{yFmt(values[hover])}</span>
+          </div>
+        </Tooltip>
+      )}
+      {isEmpty && <ChartEmpty />}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Donut — vành khuyên bo tròn, nhãn trung tâm
 export function Donut({
   slices, size = 168, thickness = 20, center,

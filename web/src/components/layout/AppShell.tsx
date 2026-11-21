@@ -4,7 +4,7 @@ import { Video } from 'lucide-react'
 import { api } from '../../api/client'
 import {
   Home, UserRound, FileText, Pill, ShoppingCart, BellRing, LogOut, Stethoscope,
-  ClipboardList, Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon, BarChart3,
+  Package, QrCode, ShieldCheck, Repeat, Search as SearchIcon, BarChart3,
 } from 'lucide-react'
 import { useAuth } from '../../store/auth'
 import { ROLE_LABELS } from '../../data/constants'
@@ -24,7 +24,7 @@ const NAV_BY_ROLE: Record<string, Tab[]> = {
     { to: '/patient/orders', label: 'Đơn hàng', icon: ShoppingCart },
   ],
   doctor: [
-    { to: '/doctor/dashboard', label: 'Hàng đợi', icon: ClipboardList },
+    { to: '/doctor/dashboard', label: 'Tổng quan', icon: Home },
     { to: '/doctor/prescriptions', label: 'Đơn thuốc', icon: FileText },
     { to: '/doctor/patient-record', label: 'Hồ sơ BN', icon: UserRound },
   ],

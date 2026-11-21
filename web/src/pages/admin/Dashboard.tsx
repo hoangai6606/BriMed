@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   Video,
   ShieldCheck, AlertTriangle, Timer, XCircle, Pill, RefreshCcw, Users, Coins,
-  Store, TrendingUp, RotateCcw, FileCheck2, ListChecks, UserPlus,
+  Store, TrendingUp, RotateCcw, FileCheck2, ListChecks, UserPlus, Activity, Globe2,
 } from 'lucide-react'
 import { SeoMeta } from '../../components/common/SeoMeta'
 import { api, fmtDate, fmtVnd } from '../../api/client'
@@ -11,6 +11,17 @@ import { PageLoading, Modal } from '../../components/common/Misc'
 import { useUi } from '../../store/ui'
 import { useAuth } from '../../store/auth'
 import { DISEASE_GROUPS, ROLE_LABELS } from '../../data/constants'
+import {
+  LineChart, StackedBarChart, Donut, Funnel, RingStat, ChartCard, ChartEmpty, fmtInt, ROLE_COLORS,
+} from '../../components/charts'
+import { NorthStarCards, AuStrip } from '../../components/charts/AnalyticsBlocks'
+
+const ROLE_VI: Record<string, string> = { ...ROLE_LABELS, guest: 'Khách vãng lai' }
+const bucketLabel = (key: string, bucket: string) => {
+  if (bucket === 'month') return `T${Number(key.split('-')[1])}`
+  const [, m, d] = key.split('-')
+  return `${Number(d)}/${Number(m)}`
+}
 
 type Tab = 'kpi' | 'leads' | 'users' | 'consultations' | 'medicines' | 'diseases' | 'registrations'
 
@@ -18,6 +29,7 @@ export default function AdminDashboard() {
   const [params, setParams] = useSearchParams()
   const tab = (params.get('tab') as Tab) || 'kpi'
   const [kpi, setKpi] = useState<any>(null)
+  const [an, setAn] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
   const [medicines, setMedicines] = useState<any[]>([])
   const [regs, setRegs] = useState<any[]>([])
@@ -43,6 +55,8 @@ export default function AdminDashboard() {
     api('/auth/doctors').then((d) => setDoctors(d.doctors || [])).catch(() => {})
     api('/catalog/pharmacies').then((d) => setPharmacies(d.pharmacies || [])).catch(() => {})
     api('/admin/patient-leads').then((d) => setLeads(d.leads)).catch(() => {})
+    // Dữ liệu chart cho tab Tổng quan
+    api('/admin/analytics?days=30').then(setAn).catch(() => setAn({ error: true }))
   }
   useEffect(load, [])
 
@@ -162,7 +176,7 @@ export default function AdminDashboard() {
       {/* Tabs */}
       <div className="flex gap-1.5 bg-white rounded-xl p-1 border border-slate-200 overflow-x-auto">
         {([
-          ['kpi', 'KPI vận hành'],
+          ['kpi', 'Tổng quan'],
           ['users', `Tài khoản (${kpi.counts.patients + kpi.counts.doctors + kpi.counts.pharmacies + 1})`],
           ['medicines', `Danh mục thuốc (${kpi.counts.medicines})`],
           ['diseases', 'Danh mục bệnh TT 30/2023'],
@@ -181,61 +195,120 @@ export default function AdminDashboard() {
       </div>
 
       {tab === 'kpi' && (
-        <>
-          <div className="flex justify-end">
-            <button onClick={billSubscriptions} className="btn-primary !min-h-[38px] !px-3.5 !text-[12.5px] mb-1">Chốt phí thuê bao tháng này</button>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard icon={<FileCheck2 size={18} />} label="Toa phát hành tháng này" value={kpi.prescriptions_this_month} tone="blue" />
-            <KpiCard
-              icon={<Timer size={18} />}
-              label="Thời gian chờ trung bình"
-              value={`${kpi.avg_wait_minutes} phút`}
-              sub={`mục tiêu ≤ ${kpi.wait_target} phút`}
-              tone={waitOk ? 'green' : 'red'}
-            />
-            <KpiCard icon={<XCircle size={18} />} label="Tỷ lệ từ chối / chuyển khám" value={`${kpi.reject_rate}%`} tone="amber" />
-            <KpiCard
-              icon={<Pill size={18} />}
-              label="Tỷ lệ toa có kháng sinh"
-              value={`${kpi.antibiotic_rate}%`}
-              sub={`ngưỡng ${kpi.antibiotic_threshold}%`}
-              tone={abOver ? 'red' : 'green'}
-            />
-            <KpiCard icon={<RefreshCcw size={18} />} label="Tỷ lệ bệnh nhân quay lại" value={`${kpi.retention_rate}%`} tone="pink" />
-            <KpiCard icon={<Store size={18} />} label="Doanh thu thuê bao B2B" value={fmtVnd(kpi.revenue_b2b_vnd)} tone="blue" />
-            <KpiCard icon={<Coins size={18} />} label="Doanh thu phí khám" value={fmtVnd(kpi.revenue_consultation_vnd)} tone="pink" />
-            <KpiCard icon={<Users size={18} />} label="Bác sĩ trực / tổng" value={`${kpi.counts.doctors_online}/${kpi.counts.doctors}`} tone="blue" />
-            <KpiCard icon={<Video size={18} />} label="Phút gọi video (tháng)" value={`${kpi.video_minutes_this_month ?? 0} phút`} sub="gói miễn phí 10.000 phút/tháng" tone="blue" />
-            {(kpi.stuck_over_15min ?? 0) > 0 && (
-              <KpiCard icon={<AlertTriangle size={18} />} label="⚠ Ca chờ quá 15 phút" value={`${kpi.stuck_over_15min} ca`} sub="đã trả phí, chưa bác sĩ nào nhận — cần xử lý ngay" tone="red" />
-            )}
-          </div>
+        an && !an.error ? (
+          <>
+            {/* Hàng số nén — nhìn 5 giây biết tình hình */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <KpiCard icon={<FileCheck2 size={18} />} label="Toa tháng này" value={fmtInt(kpi.prescriptions_this_month)} tone="blue" />
+              <KpiCard icon={<AlertTriangle size={18} />} label="Ca kẹt >15′ đã trả phí" value={`${an.ops.wait.stuck15} ca`} sub={an.ops.wait.stuck15 > 0 ? 'cần xử lý ngay' : 'sạch'} tone={an.ops.wait.stuck15 > 0 ? 'red' : 'green'} />
+              <KpiCard icon={<Coins size={18} />} label="Doanh thu 30 ngày" value={fmtVnd(an.revenue.total_vnd)} sub={`ARPU ${fmtVnd(an.revenue.arpu_vnd)}`} tone="pink" />
+              <KpiCard icon={<Users size={18} />} label="Bác sĩ trực / tổng" value={`${kpi.counts.doctors_online}/${kpi.counts.doctors}`} tone="blue" />
+              <KpiCard icon={<Timer size={18} />} label="SLA chờ TB / đạt" value={`${an.ops.wait.avg_minutes}′ · ${an.ops.wait.within_target_pct}%`} sub={`mục tiêu ≤ ${an.ops.wait.target}′`} tone={an.ops.wait.within_target_pct >= 80 ? 'green' : 'red'} />
+            </div>
 
-          {abOver && (
-            <div className="card p-4 border-2 border-redflag-fg/40 bg-redflag-bg/40 flex gap-3" role="alert">
-              <AlertTriangle size={22} className="text-redflag-fg shrink-0 mt-0.5" />
-              <div className="text-[14px] text-redflag-fg">
-                <strong>Cảnh báo kiểm soát kháng sinh:</strong> tỷ lệ toa có kháng sinh {kpi.antibiotic_rate}% vượt ngưỡng an toàn {kpi.antibiotic_threshold}%.
-                Kiểm tra chính sách kê kháng sinh và rà soát đơn của các bác sĩ.
+            <div className="flex justify-end">
+              <button onClick={billSubscriptions} className="btn-primary !min-h-[38px] !px-3.5 !text-[12.5px]">Chốt phí thuê bao tháng này</button>
+            </div>
+
+            {/* North Star kép */}
+            <NorthStarCards ns={an.north_star} />
+
+            {/* Người dùng hoạt động */}
+            <ChartCard
+              title="Người dùng hoạt động theo vai trò"
+              sub="DAU/WAU/MAU/YAU — so với kỳ trước"
+              icon={<Activity size={18} />}
+              right={<span className="badge shrink-0 bg-lightblue text-bluedark">Độ bám dính DAU/MAU: <b className="ml-1">{an.active.stickiness}%</b></span>}
+            >
+              <AuStrip active={an.active} series={an.series} days={30} />
+            </ChartCard>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ChartCard title="Lượt truy cập theo vai trò" sub="30 ngày qua" icon={<Globe2 size={18} />} className="relative">
+                <StackedBarChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={(['guest', 'patient', 'doctor', 'pharmacy', 'admin'] as const).map((role) => ({
+                    name: ROLE_VI[role], color: ROLE_COLORS[role], values: an.series.map((s: any) => s.by_role[role] || 0),
+                  }))}
+                />
+              </ChartCard>
+              <ChartCard title="Hoạt động nền tảng" sub="Form khám · toa phát hành · đơn hoàn tất" icon={<TrendingUp size={18} />}>
+                <LineChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={[
+                    { name: 'Form khám', color: '#0d71e2', values: an.series.map((s: any) => s.consults), area: true },
+                    { name: 'Toa phát hành', color: '#0756AF', values: an.series.map((s: any) => s.issued) },
+                    { name: 'Đơn hoàn tất', color: '#1E8E3E', values: an.series.map((s: any) => s.orders_completed) },
+                  ]}
+                />
+              </ChartCard>
+              <ChartCard title="Doanh thu" sub="Phí khám B2C + thuê bao B2B" icon={<Coins size={18} />}>
+                <StackedBarChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={[
+                    { name: 'Phí khám B2C', color: '#0d71e2', values: an.series.map((s: any) => s.revenue.consult) },
+                    { name: 'Thuê bao B2B', color: '#e8408a', values: an.series.map((s: any) => s.revenue.b2b) },
+                  ]}
+                  yFmt={(v) => `${(v / 1e6).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}tr`}
+                />
+              </ChartCard>
+              <ChartCard title="Phân bổ truy cập" sub="Tỷ trọng theo vai trò" icon={<Users size={18} />}>
+                <Donut
+                  slices={an.roles.map((r: any) => ({ label: ROLE_VI[r.role], value: r.visits, color: ROLE_COLORS[r.role] }))}
+                  center={{ value: fmtInt(an.series.reduce((s: number, x: any) => s + x.visits, 0)), label: 'lượt truy cập' }}
+                />
+              </ChartCard>
+              <ChartCard title="SLA thời gian chờ khám" sub={`TB ${an.ops.wait.avg_minutes}′ · p90 ${an.ops.wait.p90}′`} icon={<Timer size={18} />}>
+                <LineChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={[{ name: 'Chờ TB (phút)', color: '#0d71e2', values: an.series.map((s: any) => s.wait_avg), area: true }]}
+                  threshold={{ value: an.ops.wait.target, label: `mục tiêu ${an.ops.wait.target}′` }}
+                  yFmt={(v) => `${v}′`}
+                />
+              </ChartCard>
+              <ChartCard title="Kiểm soát kháng sinh" sub={`Tỷ lệ toa có kháng sinh — ngưỡng ${an.compliance.threshold}%`} icon={<Pill size={18} />}>
+                <LineChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={[{ name: 'Tỷ lệ kháng sinh (%)', color: '#e8408a', values: an.compliance.antibiotic_trend.map((x: any) => x.rate), area: true }]}
+                  threshold={{ value: an.compliance.threshold, label: `ngưỡng ${an.compliance.threshold}%` }}
+                  yFmt={(v) => `${v}%`}
+                />
+              </ChartCard>
+              <ChartCard title="Phễu hành trình bệnh nhân" sub="Từ truy cập đến mua thuốc" icon={<TrendingUp size={18} />}>
+                <Funnel
+                  steps={[
+                    { label: 'Truy cập', value: an.funnel.visitors, color: '#a6d3fd' },
+                    { label: 'Đăng ký', value: an.funnel.signups, color: '#7cb6f5' },
+                    { label: 'Form khám', value: an.funnel.forms, color: '#0d71e2' },
+                    { label: 'Trả phí 25k', value: an.funnel.paid, color: '#f59e0b' },
+                    { label: 'Được gọi', value: an.funnel.called, color: '#e8408a' },
+                    { label: 'Có toa', value: an.funnel.prescribed, color: '#B92A69' },
+                    { label: 'Mua tại quầy', value: an.funnel.purchased, color: '#0756AF' },
+                  ]}
+                />
+              </ChartCard>
+              <ChartCard title="Tăng trưởng & giữ chân" sub="Đăng ký mới theo ngày" icon={<RefreshCcw size={18} />}>
+                <LineChart
+                  buckets={an.series.map((s: any) => ({ key: s.key, label: bucketLabel(s.key, an.range.bucket) }))}
+                  series={[{ name: 'Đăng ký mới', color: '#e8408a', values: an.series.map((s: any) => s.new_users), area: true }]}
+                />
+                <div className="mt-3 flex justify-center">
+                  <RingStat pct={an.retention.overall_pct} color="#0d71e2" label="Bệnh nhân khám ≥ 2 lần" sub="tỷ lệ quay lại cốt lõi" />
+                </div>
+              </ChartCard>
+            </div>
+
+            {abOver && (
+              <div className="card p-4 border-2 border-redflag-fg/40 bg-redflag-bg/40 flex gap-3" role="alert">
+                <AlertTriangle size={22} className="text-redflag-fg shrink-0 mt-0.5" />
+                <div className="text-[14px] text-redflag-fg">
+                  <strong>Cảnh báo kiểm soát kháng sinh:</strong> tỷ lệ toa có kháng sinh {kpi.antibiotic_rate}% vượt ngưỡng an toàn {kpi.antibiotic_threshold}%.
+                  Kiểm tra chính sách kê kháng sinh và rà soát đơn của các bác sĩ (chi tiết ở Data Center).
+                </div>
               </div>
-            </div>
-          )}
-
-          <section className="card p-4">
-            <h2 className="section-title flex items-center gap-2 mb-3"><TrendingUp size={18} className="text-primary" /> Tổng quan hệ sinh thái</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <Mini label="Bệnh nhân" value={kpi.counts.patients} />
-              <Mini label="Bác sĩ" value={kpi.counts.doctors} />
-              <Mini label="Nhà thuốc đối tác" value={kpi.counts.pharmacies} />
-              <Mini label="Thuốc trong danh mục" value={kpi.counts.medicines} />
-            </div>
-            <div className="mt-3 text-[13px] text-slate-500">
-              Thù lao bác sĩ đã chi (theo toa): <strong className="text-bluedark">{fmtVnd(kpi.doctor_fees_vnd)}</strong> ·
-              Tổng toa phát hành: <strong className="text-bluedark">{kpi.prescriptions_total}</strong>
-            </div>
-          </section>
-        </>
+            )}
+          </>
+        ) : <PageLoading />
       )}
 
       {tab === 'users' && (
