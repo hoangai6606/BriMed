@@ -26,6 +26,8 @@ import ReceivePrescription from './pages/pharmacy/ReceivePrescription'
 import QuoteConfirm from './pages/pharmacy/QuoteConfirm'
 import PharmacyOrders from './pages/pharmacy/Orders'
 import AdminDashboard from './pages/admin/Dashboard'
+import PharmacyLanding from './pages/PharmacyLanding'
+import DoctorLanding from './pages/DoctorLanding'
 import AdminAnalytics from './pages/admin/Analytics'
 import { VisitTracker } from './api/track'
 
@@ -50,6 +52,8 @@ export default function App() {
       <Routes>
         {/* Công khai */}
         <Route path="/" element={<Home />} />
+        <Route path="/cho-nha-thuoc" element={<PharmacyLanding />} />
+        <Route path="/cho-bac-si" element={<DoctorLanding />} />
         <Route path="/nha-thuoc-doi-tac" element={<Partner />} />
         <Route path="/goi-1-thang-brimed-nha-thuoc" element={<PackagePage pkg="1" />} />
         <Route path="/goi-3-thang-brimed-nha-thuoc" element={<PackagePage pkg="3" />} />
