@@ -14,8 +14,8 @@ import '../components/landing/landing.css'
 
 // =====================================================================
 // Landing dành cho BÁC SĨ — cùng master concept "Calm Care" với trang
-// khách hàng: ca trực theo slot, gọi ngắn 1–2 phút, thù lao minh bạch
-// theo lượt khám, khám đúng danh mục TT 30/2023/TT-BYT.
+// khách hàng: ca trực theo slot, gọi ngắn 1–2 phút, thù lao thỏa thuận
+// trực tiếp, khám đúng danh mục TT 30/2023/TT-BYT.
 // =====================================================================
 
 const NAV = [
@@ -40,8 +40,8 @@ const PRACTICES = [
     icon: ShieldCheck,
   },
   {
-    key: 'pay', Scene: SceneSearch, tag: 'Minh bạch từng lượt', title: 'Thù lao 15.000đ mỗi lượt thành công',
-    text: 'Bệnh nhân trả 25.000đ/lượt: 15.000đ thuộc về bạn, ghi nhận ngay khi toa được cấp. Không phí tham gia, không giới hạn số lượt.',
+    key: 'pay', Scene: SceneSearch, tag: 'Đồng hành dài lâu', title: 'Thù lao thỏa thuận trực tiếp cùng BriMed',
+    text: 'BriMed không công bố giá trên trang giới thiệu — đội ngũ sẽ trao đổi trực tiếp để thống nhất mức thù lao phù hợp với chuyên khoa và lịch trực của bạn. Không phí tham gia, không giới hạn số lượt.',
     icon: HandCoins,
   },
 ]
@@ -51,13 +51,13 @@ const STEPS = [
   { title: 'Nhận lượt từ hàng đợi', text: 'Mỗi lượt đã thanh toán phí hiện trong hàng đợi kèm cam kết SLA ≤ 5 phút. Hồ sơ bệnh nhân chỉ hiển thị khi họ đồng ý.' },
   { title: 'Gọi video ngắn 1–2 phút', text: 'Form sàng lọc có sẵn: triệu chứng, thời gian mắc, cờ đỏ. Bạn hỏi thêm đúng điều cần — không paperwork.' },
   { title: 'Kê đơn ký số hoặc từ chối', text: 'Kê đơn trong danh mục cho phép, hệ thống cảnh báo kháng sinh tự động. Cần khám trực tiếp? Từ chối kèm lý do — hoàn phí cho bệnh nhân.' },
-  { title: 'Thù lao tích lũy theo toa', text: '15.000đ/toa ghi nhận ngay khi phát hành. Đối soát trong tài khoản bác sĩ, chi trả định kỳ hàng tháng.' },
+  { title: 'Thù lao đối soát theo toa', text: 'Thù lao ghi nhận ngay khi toa phát hành và đối soát trong tài khoản bác sĩ. Mức thù lao do bạn và BriMed trao đổi trực tiếp, chi trả định kỳ hàng tháng.' },
 ]
 
 const DOCTOR_FAQ = [
   { q: 'Tôi cần gì để nhận ca trực?', a: 'CCHN còn hiệu lực thuộc chuyên khoa phù hợp danh mục khám từ xa (nội tổng quát, TMH, da liễu, hô hấp…). BriMed xác minh giấy phép trước khi mở tài khoản bác sĩ — phòng khám đối tác có giấy phép hoạt động.' },
   { q: 'Ca trực có bị ràng buộc thời gian không?', a: 'Không. Bạn tự mở khung slot 30 phút theo lịch của mình. Khi ngoài slot, trạng thái chuyển sang "ngoại tuyến" và không có lượt mới đến với bạn.' },
-  { q: 'Thù lao chi trả như thế nào?', a: '15.000đ cho mỗi lượt khám thành công (bệnh nhân trả 25.000đ/lượt qua VietQR). Thù lao ghi nhận ngay khi toa ký số được phát hành, đối soát và chi trả định kỳ hàng tháng.' },
+  { q: 'Thù lao chi trả như thế nào?', a: 'BriMed không niêm yết giá trên trang giới thiệu. Mức thù lao được trao đổi trực tiếp khi bạn bắt đầu nhận ca trực, ghi nhận ngay khi toa ký số được phát hành, đối soát và chi trả định kỳ hàng tháng.' },
   { q: 'Trách nhiệm pháp lý của tôi ra sao?', a: 'Bạn chỉ khám trong danh mục bệnh được phép khám từ xa theo TT 30/2023/TT-BYT. Toa ký số theo TT 26/2025, mọi yêu cầu truy xuất có hồ sơ sàng lọc và ghi chú cuộc gọi kèm theo.' },
   { q: 'Khi nào tôi nên từ chối kê đơn?', a: 'Mọi dấu hiệu cờ đỏ: khó thở, sốt cao quá 3 ngày, trẻ dưới 6 tuổi, thai phụ… Hệ thống đã cảnh báo sẵn cho bạn. Từ chối kèm lý do — bệnh nhân được hoàn phí và hướng dẫn đến cơ sở y tế gần nhất.' },
   { q: 'Tôi cần thiết bị gì?', a: 'Một điện thoại hoặc laptop có camera, micro và kết nối ổn định. Toàn bộ diễn ra trong trình duyệt — không cần cài phần mềm quản lý nào.' },
@@ -104,14 +104,14 @@ function Hero({ ready }: { ready: boolean }) {
         </h1>
         <p className="hero-lede">
           Bệnh nhân tại quầy thuốc đã được sàng lọc, đã thanh toán, đang chờ — bạn chỉ cần
-          một cuộc gọi ngắn và một toa ký số. Trực linh hoạt, thù lao minh bạch từng lượt.
+          một cuộc gọi ngắn và một toa ký số. Trực linh hoạt, thù lao thỏa thuận trực tiếp.
         </p>
         <div className="hero-cta">
-          <Link className="btn-breathe" to="/auth"><Stethoscope size={19} /> Đăng ký nhận ca trực <small>15.000đ/lượt</small></Link>
+          <Link className="btn-breathe" to="/auth"><Stethoscope size={19} /> Đăng ký nhận ca trực</Link>
           <a className="btn-quiet" href="#quy-trinh"><Timer size={18} /> Xem một ca trực đi như thế nào</a>
         </div>
         <dl className="hero-stats">
-          <div><dt><CountUp to={15} run={ready} /><small>.000đ</small></dt><dd>thù lao mỗi lượt khám thành công</dd></div>
+          <div><dt>30 <small>phút</small></dt><dd>mỗi khung trực bạn tự chọn</dd></div>
           <div><dt>1–2 <small>phút</small></dt><dd>cho mỗi cuộc gọi hỏi bệnh</dd></div>
           <div><dt><CountUp to={5} run={ready} /><small> phút</small></dt><dd>cam kết SLA từ lúc nhận lượt đến khi gọi</dd></div>
         </dl>
@@ -206,12 +206,12 @@ function PhoneScreens({ active }: { active: number }) {
             {[['Paracetamol 500mg', 'Sáng · Tối'], ['Loratadin 10mg', 'Tối']].map(([n, t], i) => (
               <div className="rx-line" key={n} style={v({ '--i': i })}><Pill size={14} /><span>{n}</span><small>{t}</small></div>
             ))}
-            <div className="rx-signed"><ShieldCheck size={14} /> Đã ký số · +15.000đ</div>
+            <div className="rx-signed"><ShieldCheck size={14} /> Đã ký số</div>
           </div>
         </div>
         <div className={`ps ps-done ${active === 4 ? 'on' : ''}`}>
           <div className="done-bag"><HandCoins size={44} strokeWidth={1.4} /><i><Check size={14} /></i></div>
-          <b>Hôm nay: 14 toa</b><small>Thù lao +210.000đ · đối soát cuối tháng</small>
+          <b>Hôm nay: 14 toa</b><small>Thù lao đối soát cuối tháng</small>
           <div className="done-bar"><i /></div>
         </div>
       </div>
@@ -340,15 +340,11 @@ function Quotes() {
 function Fee() {
   return (
     <section className="sec pricing" id="thu-lao">
-      <SectionHead kicker="Thù lao minh bạch" title={<>Mỗi lượt khám,<br /><em>một con số rõ ràng.</em></>} text="Không phí tham gia, không phí nền tảng — bạn chỉ nhận thù lao cho những lượt khám mình thực sự hoàn thành." />
+      <SectionHead kicker="Thù lao thỏa thuận" title={<>Mỗi lượt khám,<br /><em>một thỏa thuận rõ ràng.</em></>} />
       <div className="price-layout">
         <article className="price-main" data-reveal>
-          <span className="price-label">Thù lao mỗi lượt khám thành công</span>
-          <div className="price-num"><b>15.000</b><span>đ</span></div>
-          <div className="price-split" aria-label="Phân bổ phí khám 25.000đ">
-            <div style={v({ '--w': '60%' })}><i /><span>Bác sĩ 15.000đ</span></div>
-            <div style={v({ '--w': '40%' })} className="pink"><i /><span>BriMed 10.000đ (gồm GTGT)</span></div>
-          </div>
+          <span className="price-label">Thù lao thỏa thuận trực tiếp</span>
+          <p className="price-desc">Bạn và BriMed trao đổi trực tiếp để thống nhất mức thù lao phù hợp với chuyên khoa, kinh nghiệm và lịch trực. Không phí tham gia, không giới hạn số lượt nhận trong khung trực.</p>
           <ul>
             <li><Check size={16} /> Ghi nhận ngay khi toa ký số được phát hành</li>
             <li><Check size={16} /> Không giới hạn số lượt nhận trong khung trực</li>
@@ -356,7 +352,7 @@ function Fee() {
           </ul>
           <div className="price-qr">
             <div className="qr-box"><span className="standee-mini"><Stethoscope size={56} strokeWidth={1} /></span><i className="scanline" /></div>
-            <p><b>Mở tài khoản bác sĩ.</b><br />Xác minh CCHN trong 24 giờ, nhận ca trực đầu tiên trong tuần này.</p>
+            <p><b>Liên hệ BriMed để trao đổi.</b><br />Hotline <a href="tel:19002026">1900 2026</a> · <a href="mailto:sharkvision.co.work@gmail.com">sharkvision.co.work@gmail.com</a> — xác minh CCHN trong 24 giờ, nhận ca trực đầu tiên trong tuần này.</p>
           </div>
         </article>
         <div className="safety-col">
@@ -430,7 +426,7 @@ function Footer() {
           <strong>Bác sĩ</strong>
           <Link to="/cho-bac-si">Trang dành cho bác sĩ</Link>
           <Link to="/auth">Mở tài khoản nhận ca trực</Link>
-          <a href="#thu-lao">Thù lao minh bạch</a>
+          <a href="#thu-lao">Trao đổi thù lao</a>
           <a href="#faq">Câu hỏi thường gặp</a>
         </div>
         <div>
@@ -482,8 +478,8 @@ export default function DoctorLanding() {
   return (
     <div className="lp2 is-ready" ref={rootRef}>
       <SeoMeta
-        title="BriMed Dành Cho Bác Sĩ | Trực Linh Hoạt, Thù Lao 15.000đ/Lượt Khám"
-        description="Bác sĩ nhận ca trực từ xa theo khung slot 30 phút tự chọn: bệnh nhân đã sàng lọc TT 30/2023, gọi video 1–2 phút, toa ký số TT 26/2025, thù lao 15.000đ/lượt minh bạch."
+        title="BriMed Dành Cho Bác Sĩ | Trực Linh Hoạt, Thù Lao Thỏa Thuận"
+        description="Bác sĩ nhận ca trực từ xa theo khung slot 30 phút tự chọn: bệnh nhân đã sàng lọc TT 30/2023, gọi video 1–2 phút, toa ký số TT 26/2025. Thù lao trao đổi trực tiếp cùng BriMed."
       />
       <div className="scroll-progress" aria-hidden="true"><i /></div>
       <div className="paper" aria-hidden="true" />

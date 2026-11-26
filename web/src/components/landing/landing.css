@@ -546,6 +546,9 @@
 .lp2 .price-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
 .lp2 .price-main { padding: clamp(28px, 4vw, 44px); border-radius: 34px; background: #fff; border: 1px solid rgba(16, 36, 75, .06); box-shadow: 0 40px 80px -60px rgba(7, 86, 175, .5); }
 .lp2 .price-label { font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
+.lp2 .price-desc { margin: 12px 0 0; max-width: 52ch; font-size: clamp(15px, 1.6vw, 17px); line-height: 1.7; color: var(--ink-2); }
+.lp2 .price-qr a { color: var(--blue-d); font-weight: 600; text-decoration: none; }
+.lp2 .price-qr a:hover { text-decoration: underline; }
 .lp2 .price-num { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; font-family: var(--serif); color: var(--blue-d); }
 .lp2 .price-num b { font-size: clamp(64px, 8vw, 96px); font-weight: 500; line-height: 1; letter-spacing: -.03em; }
 .lp2 .price-num span { font-size: 28px; }
